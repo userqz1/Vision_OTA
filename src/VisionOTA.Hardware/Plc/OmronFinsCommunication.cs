@@ -1,5 +1,6 @@
 using System;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VisionOTA.Infrastructure.Config;
@@ -8,7 +9,19 @@ using VisionOTA.Infrastructure.Logging;
 namespace VisionOTA.Hardware.Plc
 {
     /// <summary>
-    /// 欧姆龙FINS协议通讯实现
+    /// 欧姆龙FINS/TCP协议通讯实现 (调试版本)
+    /// 
+    /// 内存区域代码参考 (CS/CJ系列):
+    /// ┌──────────┬───────────┬───────────┐
+    /// │ 区域     │ Word代码  │ Bit代码   │
+    /// ├──────────┼───────────┼───────────┤
+    /// │ CIO      │ 0xB0      │ 0x30      │
+    /// │ WR       │ 0xB1      │ 0x31      │
+    /// │ HR       │ 0xB2      │ 0x32      │
+    /// │ AR       │ 0xB3      │ 0x33      │
+    /// │ DM       │ 0x82      │ 0x02      │
+    /// │ EM(bank0)│ 0xA0      │ 0x20      │
+    /// └──────────┴───────────┴───────────┘
     /// </summary>
     public class OmronFinsCommunication : IPlcCommunication
     {
@@ -20,32 +33,32 @@ namespace VisionOTA.Hardware.Plc
         private readonly int _timeout;
         private CancellationTokenSource _heartbeatCts;
 
-        // 使用SemaphoreSlim替代lock，支持异步等待
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
-        // FINS节点地址 (握手后获取)
+        // FINS节点地址
         private byte _pcNode = 0;
         private byte _plcNode = 0;
 
-        // FINS响应头长度
-        private const int FINS_TCP_HEADER_LEN = 16;
-        private const int FINS_HEADER_LEN = 10;
-        private const int FINS_RESPONSE_CODE_OFFSET = 28;
-        private const int FINS_DATA_OFFSET = 30;
+        // 启用详细调试
+        private bool _enableDebug = true;
 
-        // 内存区域代码 - 字访问 (Word)
-        private const byte AREA_DM_WORD = 0x82;     // D区 字访问
-        private const byte AREA_CIO_WORD = 0xB0;    // CIO区 字访问
-        private const byte AREA_WR_WORD = 0xB1;     // W区 字访问
-        private const byte AREA_HR_WORD = 0xB2;     // H区 字访问
-        private const byte AREA_AR_WORD = 0xB3;     // A区 字访问
+        // 内存区域代码 - Word访问
+        private const byte AREA_CIO_WORD = 0xB0;
+        private const byte AREA_WR_WORD = 0xB1;
+        private const byte AREA_HR_WORD = 0xB2;
+        private const byte AREA_AR_WORD = 0xB3;
+        private const byte AREA_DM_WORD = 0x82;
+        private const byte AREA_EM0_WORD = 0xA0;
 
-        // 内存区域代码 - 位访问 (Bit)
-        private const byte AREA_DM_BIT = 0x02;      // D区 位访问
-        private const byte AREA_CIO_BIT = 0x30;     // CIO区 位访问
-        private const byte AREA_WR_BIT = 0x31;      // W区 位访问
-        private const byte AREA_HR_BIT = 0x32;      // H区 位访问
-        private const byte AREA_AR_BIT = 0x33;      // A区 位访问
+        // 内存区域代码 - Bit访问
+        private const byte AREA_CIO_BIT = 0x30;
+        private const byte AREA_WR_BIT = 0x31;
+        private const byte AREA_HR_BIT = 0x32;
+        private const byte AREA_AR_BIT = 0x33;
+        private const byte AREA_DM_BIT = 0x02;
+        private const byte AREA_EM0_BIT = 0x20;
+
+        private byte _sid = 0;
 
         public bool IsConnected => _isConnected;
 
@@ -59,10 +72,44 @@ namespace VisionOTA.Hardware.Plc
             _timeout = timeout;
         }
 
+        /// <summary>
+        /// 启用或禁用调试输出
+        /// </summary>
+        public void SetDebugMode(bool enable)
+        {
+            _enableDebug = enable;
+        }
+
+        private void DebugLog(string message)
+        {
+            if (_enableDebug)
+            {
+                FileLogger.Instance.Debug($"[FINS-DEBUG] {message}", "FINS");
+                System.Diagnostics.Debug.WriteLine($"[FINS-DEBUG] {message}");
+            }
+        }
+
+        private string BytesToHex(byte[] data, int offset = 0, int length = -1)
+        {
+            if (data == null) return "null";
+            if (length < 0) length = data.Length - offset;
+            var sb = new StringBuilder();
+            for (int i = 0; i < length && (offset + i) < data.Length; i++)
+            {
+                sb.Append(data[offset + i].ToString("X2"));
+                sb.Append(" ");
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        #region 连接管理
+
         public async Task<bool> ConnectAsync()
         {
             try
             {
+                DebugLog($"正在连接 {_ipAddress}:{_port}...");
+
                 _tcpClient = new TcpClient
                 {
                     ReceiveTimeout = _timeout,
@@ -72,23 +119,24 @@ namespace VisionOTA.Hardware.Plc
                 var connectTask = _tcpClient.ConnectAsync(_ipAddress, _port);
                 if (await Task.WhenAny(connectTask, Task.Delay(_timeout)) != connectTask)
                 {
-                    throw new TimeoutException("连接超时");
+                    throw new TimeoutException("TCP连接超时");
                 }
 
-                await connectTask; // 确保连接完成或抛出异常
-
+                await connectTask;
                 _stream = _tcpClient.GetStream();
 
-                // FINS/TCP握手
+                DebugLog("TCP连接成功，开始FINS握手...");
+
                 if (!await PerformHandshakeAsync())
                 {
                     throw new Exception("FINS握手失败");
                 }
 
                 _isConnected = true;
-                FileLogger.Instance.Info($"PLC已连接 {_ipAddress}:{_port}, PC节点:{_pcNode}, PLC节点:{_plcNode}", "FINS");
+                DebugLog($"FINS连接成功! PC节点={_pcNode}, PLC节点={_plcNode}");
 
-                // 启动心跳检测
+                FileLogger.Instance.Info($"PLC已连接 {_ipAddress}:{_port}", "FINS");
+
                 StartHeartbeat();
 
                 ConnectionChanged?.Invoke(this, new PlcConnectionChangedEventArgs
@@ -101,6 +149,7 @@ namespace VisionOTA.Hardware.Plc
             }
             catch (Exception ex)
             {
+                DebugLog($"连接失败: {ex.Message}");
                 FileLogger.Instance.Error($"PLC连接失败: {ex.Message}", ex, "FINS");
                 _isConnected = false;
                 CommunicationError?.Invoke(this, new PlcErrorEventArgs
@@ -112,49 +161,24 @@ namespace VisionOTA.Hardware.Plc
             }
         }
 
-        /// <summary>
-        /// FINS/TCP握手 - 获取节点地址
-        /// </summary>
         private async Task<bool> PerformHandshakeAsync()
         {
             try
             {
-                // FINS/TCP握手帧
-                byte[] handshakeRequest = new byte[20];
+                // FINS/TCP握手请求 (20字节)
+                byte[] handshakeRequest = new byte[]
+                {
+                    0x46, 0x49, 0x4E, 0x53,  // "FINS"
+                    0x00, 0x00, 0x00, 0x0C,  // 长度=12
+                    0x00, 0x00, 0x00, 0x00,  // 命令=握手
+                    0x00, 0x00, 0x00, 0x00,  // 错误码=0
+                    0x00, 0x00, 0x00, 0x00   // 客户端节点=自动分配
+                };
 
-                // FINS标识
-                handshakeRequest[0] = 0x46; // F
-                handshakeRequest[1] = 0x49; // I
-                handshakeRequest[2] = 0x4E; // N
-                handshakeRequest[3] = 0x53; // S
-
-                // 长度 (后续数据长度: 12字节)
-                handshakeRequest[4] = 0x00;
-                handshakeRequest[5] = 0x00;
-                handshakeRequest[6] = 0x00;
-                handshakeRequest[7] = 0x0C;
-
-                // 命令 (握手: 0x00000000)
-                handshakeRequest[8] = 0x00;
-                handshakeRequest[9] = 0x00;
-                handshakeRequest[10] = 0x00;
-                handshakeRequest[11] = 0x00;
-
-                // 错误码
-                handshakeRequest[12] = 0x00;
-                handshakeRequest[13] = 0x00;
-                handshakeRequest[14] = 0x00;
-                handshakeRequest[15] = 0x00;
-
-                // 客户端节点 (0表示自动分配)
-                handshakeRequest[16] = 0x00;
-                handshakeRequest[17] = 0x00;
-                handshakeRequest[18] = 0x00;
-                handshakeRequest[19] = 0x00;
-
+                DebugLog($"发送握手请求: {BytesToHex(handshakeRequest)}");
                 await _stream.WriteAsync(handshakeRequest, 0, handshakeRequest.Length);
 
-                // 读取响应
+                // 读取响应 (24字节)
                 byte[] response = new byte[24];
                 int totalRead = 0;
                 while (totalRead < 24)
@@ -165,28 +189,35 @@ namespace VisionOTA.Hardware.Plc
                     totalRead += bytesRead;
                 }
 
-                // 检查FINS标识
-                if (response[0] == 0x46 && response[1] == 0x49 && response[2] == 0x4E && response[3] == 0x53)
-                {
-                    // 检查错误码
-                    int errorCode = (response[12] << 24) | (response[13] << 16) | (response[14] << 8) | response[15];
-                    if (errorCode != 0)
-                    {
-                        FileLogger.Instance.Error($"FINS握手错误码: {errorCode}", null, "FINS");
-                        return false;
-                    }
+                DebugLog($"收到握手响应: {BytesToHex(response)}");
 
-                    // 获取节点地址
-                    _pcNode = response[19];   // 客户端节点
-                    _plcNode = response[23];  // 服务端节点
-                    return true;
+                // 验证FINS标识
+                if (response[0] != 0x46 || response[1] != 0x49 ||
+                    response[2] != 0x4E || response[3] != 0x53)
+                {
+                    DebugLog("错误: 无效的FINS标识");
+                    return false;
                 }
 
-                return false;
+                // 检查错误码
+                int errorCode = (response[12] << 24) | (response[13] << 16) |
+                               (response[14] << 8) | response[15];
+                if (errorCode != 0)
+                {
+                    DebugLog($"错误: 握手错误码=0x{errorCode:X8}");
+                    return false;
+                }
+
+                // 获取节点地址
+                _pcNode = response[19];
+                _plcNode = response[23];
+
+                DebugLog($"握手成功: PC节点={_pcNode}, PLC节点={_plcNode}");
+                return true;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"FINS握手异常: {ex.Message}", ex, "FINS");
+                DebugLog($"握手异常: {ex.Message}");
                 return false;
             }
         }
@@ -200,7 +231,7 @@ namespace VisionOTA.Hardware.Plc
                 _tcpClient?.Close();
                 _isConnected = false;
 
-                FileLogger.Instance.Info("PLC已断开", "FINS");
+                DebugLog("已断开连接");
                 ConnectionChanged?.Invoke(this, new PlcConnectionChangedEventArgs
                 {
                     IsConnected = false,
@@ -209,7 +240,7 @@ namespace VisionOTA.Hardware.Plc
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"PLC断开失败: {ex.Message}", ex, "FINS");
+                DebugLog($"断开连接异常: {ex.Message}");
             }
         }
 
@@ -217,7 +248,7 @@ namespace VisionOTA.Hardware.Plc
         {
             _heartbeatCts = new CancellationTokenSource();
             var config = ConfigManager.Instance.Plc;
-            var heartbeatInterval = config?.Heartbeat?.Interval ?? 1000;
+            var heartbeatInterval = config?.Heartbeat?.Interval ?? 5000;
 
             Task.Run(async () =>
             {
@@ -226,10 +257,7 @@ namespace VisionOTA.Hardware.Plc
                     try
                     {
                         await Task.Delay(heartbeatInterval, _heartbeatCts.Token);
-
-                        // 读取心跳地址验证连接
                         var heartbeatAddress = config?.Heartbeat?.Address ?? "D0";
-                        // 确保心跳地址格式正确（不带位号）
                         if (heartbeatAddress.Contains("."))
                             heartbeatAddress = heartbeatAddress.Split('.')[0];
 
@@ -241,7 +269,7 @@ namespace VisionOTA.Hardware.Plc
                     }
                     catch (Exception ex)
                     {
-                        FileLogger.Instance.Warning($"PLC心跳检测失败: {ex.Message}", "FINS");
+                        DebugLog($"心跳检测失败: {ex.Message}");
                         HandleDisconnection();
                         break;
                     }
@@ -251,8 +279,7 @@ namespace VisionOTA.Hardware.Plc
 
         private void HandleDisconnection()
         {
-            if (!_isConnected)
-                return;
+            if (!_isConnected) return;
 
             _isConnected = false;
             ConnectionChanged?.Invoke(this, new PlcConnectionChangedEventArgs
@@ -261,7 +288,6 @@ namespace VisionOTA.Hardware.Plc
                 Message = "PLC连接已断开"
             });
 
-            // 尝试重连
             var config = ConfigManager.Instance.Plc;
             var reconnectInterval = config?.Connection?.ReconnectInterval ?? 5000;
 
@@ -270,16 +296,17 @@ namespace VisionOTA.Hardware.Plc
                 while (!_isConnected && !_heartbeatCts.Token.IsCancellationRequested)
                 {
                     await Task.Delay(reconnectInterval);
-                    FileLogger.Instance.Info("尝试重连PLC...", "FINS");
+                    DebugLog("尝试重连...");
                     if (await ConnectAsync())
                         break;
                 }
             });
         }
 
-        /// <summary>
-        /// 解析地址字符串 (如 D4400, W0.00, H100, A50)
-        /// </summary>
+        #endregion
+
+        #region 地址解析
+
         private (byte wordCode, byte bitCode, ushort address, byte bit, bool hasBit) ParseAddressEx(string addressStr)
         {
             addressStr = addressStr.ToUpper().Trim();
@@ -287,14 +314,25 @@ namespace VisionOTA.Hardware.Plc
             ushort address;
             byte bit = 0;
             bool hasBit = false;
-
             string addrPart;
 
-            if (addressStr.StartsWith("D"))
+            if (addressStr.StartsWith("DM"))
+            {
+                wordCode = AREA_DM_WORD;
+                bitCode = AREA_DM_BIT;
+                addrPart = addressStr.Substring(2);
+            }
+            else if (addressStr.StartsWith("D"))
             {
                 wordCode = AREA_DM_WORD;
                 bitCode = AREA_DM_BIT;
                 addrPart = addressStr.Substring(1);
+            }
+            else if (addressStr.StartsWith("WR"))
+            {
+                wordCode = AREA_WR_WORD;
+                bitCode = AREA_WR_BIT;
+                addrPart = addressStr.Substring(2);
             }
             else if (addressStr.StartsWith("W"))
             {
@@ -302,11 +340,23 @@ namespace VisionOTA.Hardware.Plc
                 bitCode = AREA_WR_BIT;
                 addrPart = addressStr.Substring(1);
             }
+            else if (addressStr.StartsWith("HR"))
+            {
+                wordCode = AREA_HR_WORD;
+                bitCode = AREA_HR_BIT;
+                addrPart = addressStr.Substring(2);
+            }
             else if (addressStr.StartsWith("H"))
             {
                 wordCode = AREA_HR_WORD;
                 bitCode = AREA_HR_BIT;
                 addrPart = addressStr.Substring(1);
+            }
+            else if (addressStr.StartsWith("AR"))
+            {
+                wordCode = AREA_AR_WORD;
+                bitCode = AREA_AR_BIT;
+                addrPart = addressStr.Substring(2);
             }
             else if (addressStr.StartsWith("A"))
             {
@@ -320,14 +370,15 @@ namespace VisionOTA.Hardware.Plc
                 bitCode = AREA_CIO_BIT;
                 addrPart = addressStr.Substring(3);
             }
-            else if (addressStr.StartsWith("C"))
+            else if (addressStr.StartsWith("EM") || addressStr.StartsWith("E"))
             {
-                wordCode = AREA_CIO_WORD;
-                bitCode = AREA_CIO_BIT;
-                addrPart = addressStr.Substring(1);
+                wordCode = AREA_EM0_WORD;
+                bitCode = AREA_EM0_BIT;
+                addrPart = addressStr.StartsWith("EM") ? addressStr.Substring(2) : addressStr.Substring(1);
             }
             else if (char.IsDigit(addressStr[0]))
             {
+                // 纯数字默认为CIO
                 wordCode = AREA_CIO_WORD;
                 bitCode = AREA_CIO_BIT;
                 addrPart = addressStr;
@@ -337,7 +388,6 @@ namespace VisionOTA.Hardware.Plc
                 throw new ArgumentException($"不支持的地址格式: {addressStr}");
             }
 
-            // 解析地址和位号
             if (addrPart.Contains("."))
             {
                 var parts = addrPart.Split('.');
@@ -352,166 +402,199 @@ namespace VisionOTA.Hardware.Plc
                 address = ushort.Parse(addrPart);
             }
 
+            DebugLog($"解析地址 '{addressStr}' => WordCode=0x{wordCode:X2}, Address={address}, Bit={bit}, HasBit={hasBit}");
             return (wordCode, bitCode, address, bit, hasBit);
         }
 
+        #endregion
+
+        #region 命令构建
+
+        private byte GetNextSid()
+        {
+            return ++_sid;
+        }
+
         /// <summary>
-        /// 构建FINS/TCP读取命令
+        /// 构建读取命令
         /// </summary>
         private byte[] BuildReadCommand(byte areaCode, ushort address, byte bit, ushort count)
         {
-            byte[] command = new byte[34];
+            // 计算长度
+            // FINS头(10) + 命令码(2) + 参数(6) = 18
+            int finsLen = 18;
+            int tcpPayloadLen = 8 + finsLen;  // TCP命令头(8) + FINS数据
+
+            byte[] cmd = new byte[16 + finsLen];  // TCP头(16) + FINS数据
+            int i = 0;
 
             // TCP头
-            command[0] = 0x46; command[1] = 0x49; command[2] = 0x4E; command[3] = 0x53;
-            command[4] = 0x00; command[5] = 0x00; command[6] = 0x00; command[7] = 0x1A; // 长度26
-            command[8] = 0x00; command[9] = 0x00; command[10] = 0x00; command[11] = 0x02; // 命令
-            command[12] = 0x00; command[13] = 0x00; command[14] = 0x00; command[15] = 0x00;
+            cmd[i++] = 0x46; cmd[i++] = 0x49; cmd[i++] = 0x4E; cmd[i++] = 0x53;  // "FINS"
+            cmd[i++] = (byte)(tcpPayloadLen >> 24);
+            cmd[i++] = (byte)(tcpPayloadLen >> 16);
+            cmd[i++] = (byte)(tcpPayloadLen >> 8);
+            cmd[i++] = (byte)(tcpPayloadLen & 0xFF);
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x02;  // FINS帧命令
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00;  // 错误码
 
             // FINS头
-            command[16] = 0x80;        // ICF
-            command[17] = 0x00;        // RSV
-            command[18] = 0x02;        // GCT
-            command[19] = 0x00;        // DNA
-            command[20] = _plcNode;    // DA1
-            command[21] = 0x00;        // DA2
-            command[22] = 0x00;        // SNA
-            command[23] = _pcNode;     // SA1
-            command[24] = 0x00;        // SA2
-            command[25] = 0x00;        // SID
+            cmd[i++] = 0x80;         // ICF: 需要响应
+            cmd[i++] = 0x00;         // RSV
+            cmd[i++] = 0x02;         // GCT
+            cmd[i++] = 0x00;         // DNA: 目标网络
+            cmd[i++] = _plcNode;     // DA1: 目标节点
+            cmd[i++] = 0x00;         // DA2: 目标单元
+            cmd[i++] = 0x00;         // SNA: 源网络
+            cmd[i++] = _pcNode;      // SA1: 源节点
+            cmd[i++] = 0x00;         // SA2: 源单元
+            cmd[i++] = GetNextSid(); // SID
 
-            // 命令代码: 0101 = 内存区域读取
-            command[26] = 0x01;
-            command[27] = 0x01;
+            // 命令码: 0101 = Memory Area Read
+            cmd[i++] = 0x01;
+            cmd[i++] = 0x01;
 
-            // 地址
-            command[28] = areaCode;
-            command[29] = (byte)(address >> 8);
-            command[30] = (byte)(address & 0xFF);
-            command[31] = bit;
+            // 参数
+            cmd[i++] = areaCode;                      // 内存区域
+            cmd[i++] = (byte)(address >> 8);          // 地址高字节
+            cmd[i++] = (byte)(address & 0xFF);        // 地址低字节
+            cmd[i++] = bit;                           // 位地址
+            cmd[i++] = (byte)(count >> 8);            // 数量高字节
+            cmd[i++] = (byte)(count & 0xFF);          // 数量低字节
 
-            // 读取长度
-            command[32] = (byte)(count >> 8);
-            command[33] = (byte)(count & 0xFF);
+            DebugLog($"构建读取命令: Area=0x{areaCode:X2}, Addr={address}, Bit={bit}, Count={count}");
+            DebugLog($"完整命令: {BytesToHex(cmd)}");
 
-            return command;
+            return cmd;
         }
 
         /// <summary>
-        /// 构建FINS/TCP写入命令
+        /// 构建写入命令
         /// </summary>
-        private byte[] BuildWriteCommand(byte areaCode, ushort address, byte bit, byte[] data, bool isBitWrite = false)
+        private byte[] BuildWriteCommand(byte areaCode, ushort address, byte bit, byte[] data)
         {
-            int dataLen = data.Length;
-            // 位写入时count是位数，字写入时count是字数
-            int count = isBitWrite ? dataLen : dataLen / 2;
-            byte[] command = new byte[34 + dataLen];
+            int count = data.Length / 2;
+            int finsLen = 18 + data.Length;  // FINS头(10) + 命令码(2) + 参数(6) + 数据
+            int tcpPayloadLen = 8 + finsLen;
+
+            byte[] cmd = new byte[16 + finsLen];
+            int i = 0;
 
             // TCP头
-            command[0] = 0x46; command[1] = 0x49; command[2] = 0x4E; command[3] = 0x53;
-            int len = 26 + dataLen;
-            command[4] = (byte)(len >> 24);
-            command[5] = (byte)(len >> 16);
-            command[6] = (byte)(len >> 8);
-            command[7] = (byte)(len & 0xFF);
-            command[8] = 0x00; command[9] = 0x00; command[10] = 0x00; command[11] = 0x02;
-            command[12] = 0x00; command[13] = 0x00; command[14] = 0x00; command[15] = 0x00;
+            cmd[i++] = 0x46; cmd[i++] = 0x49; cmd[i++] = 0x4E; cmd[i++] = 0x53;
+            cmd[i++] = (byte)(tcpPayloadLen >> 24);
+            cmd[i++] = (byte)(tcpPayloadLen >> 16);
+            cmd[i++] = (byte)(tcpPayloadLen >> 8);
+            cmd[i++] = (byte)(tcpPayloadLen & 0xFF);
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x02;
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00;
 
             // FINS头
-            command[16] = 0x80;
-            command[17] = 0x00;
-            command[18] = 0x02;
-            command[19] = 0x00;
-            command[20] = _plcNode;
-            command[21] = 0x00;
-            command[22] = 0x00;
-            command[23] = _pcNode;
-            command[24] = 0x00;
-            command[25] = 0x00;
+            cmd[i++] = 0x80;
+            cmd[i++] = 0x00;
+            cmd[i++] = 0x02;
+            cmd[i++] = 0x00;
+            cmd[i++] = _plcNode;
+            cmd[i++] = 0x00;
+            cmd[i++] = 0x00;
+            cmd[i++] = _pcNode;
+            cmd[i++] = 0x00;
+            cmd[i++] = GetNextSid();
 
-            // 命令代码: 0102 = 内存区域写入
-            command[26] = 0x01;
-            command[27] = 0x02;
+            // 命令码: 0102 = Memory Area Write
+            cmd[i++] = 0x01;
+            cmd[i++] = 0x02;
 
-            // 地址
-            command[28] = areaCode;
-            command[29] = (byte)(address >> 8);
-            command[30] = (byte)(address & 0xFF);
-            command[31] = bit;
-
-            // 写入长度
-            command[32] = (byte)(count >> 8);
-            command[33] = (byte)(count & 0xFF);
+            // 参数
+            cmd[i++] = areaCode;
+            cmd[i++] = (byte)(address >> 8);
+            cmd[i++] = (byte)(address & 0xFF);
+            cmd[i++] = bit;
+            cmd[i++] = (byte)(count >> 8);
+            cmd[i++] = (byte)(count & 0xFF);
 
             // 数据
-            Array.Copy(data, 0, command, 34, dataLen);
+            Array.Copy(data, 0, cmd, i, data.Length);
 
-            return command;
+            DebugLog($"构建写入命令: Area=0x{areaCode:X2}, Addr={address}, Bit={bit}, Count={count}");
+            DebugLog($"写入数据: {BytesToHex(data)}");
+            DebugLog($"完整命令: {BytesToHex(cmd)}");
+
+            return cmd;
         }
 
-        /// <summary>
-        /// 发送命令并接收响应 (真正的异步实现)
-        /// </summary>
+        #endregion
+
+        #region 通讯
+
         private async Task<byte[]> SendAndReceiveAsync(byte[] command, int expectedDataLen)
         {
             await _semaphore.WaitAsync();
             try
             {
-                // 发送命令
+                DebugLog($"发送: {BytesToHex(command)}");
+
+                // 发送
                 await _stream.WriteAsync(command, 0, command.Length);
 
-                // 计算期望的响应长度: TCP头(16) + FINS头(10) + 响应码(2) + 数据
-                int expectedResponseLen = FINS_TCP_HEADER_LEN + FINS_HEADER_LEN + 2 + expectedDataLen;
-                byte[] response = new byte[Math.Max(expectedResponseLen, 256)];
+                // 读取TCP头
+                byte[] tcpHeader = new byte[16];
+                await ReadExactAsync(tcpHeader, 0, 16);
 
-                // 读取响应 - 确保读取完整
-                int totalRead = 0;
-                int minRequired = FINS_DATA_OFFSET; // 至少读取到响应码
+                DebugLog($"收到TCP头: {BytesToHex(tcpHeader)}");
 
-                while (totalRead < minRequired)
+                // 验证FINS标识
+                if (tcpHeader[0] != 0x46 || tcpHeader[1] != 0x49 ||
+                    tcpHeader[2] != 0x4E || tcpHeader[3] != 0x53)
                 {
-                    int bytesRead = await _stream.ReadAsync(response, totalRead, response.Length - totalRead);
-                    if (bytesRead == 0)
-                        throw new Exception("连接已关闭");
-                    totalRead += bytesRead;
+                    throw new Exception("无效的FINS响应标识");
                 }
 
-                // 检查是否需要读取更多数据
-                if (totalRead >= 8)
-                {
-                    int payloadLen = (response[4] << 24) | (response[5] << 16) | (response[6] << 8) | response[7];
-                    int fullLen = 8 + payloadLen;
+                // 获取载荷长度
+                // Length字段的值包含Command(4)+Error(4)+FINS帧
+                // 我们已经在tcpHeader中读取了Command和Error，所以实际需要读取的是 Length-8
+                int totalPayloadLen = (tcpHeader[4] << 24) | (tcpHeader[5] << 16) |
+                                      (tcpHeader[6] << 8) | tcpHeader[7];
+                int finsFrameLen = totalPayloadLen - 8;  // 减去已读取的Command+Error
 
-                    while (totalRead < fullLen && totalRead < response.Length)
+                DebugLog($"载荷长度: {totalPayloadLen}, FINS帧长度: {finsFrameLen}");
+
+                if (finsFrameLen < 0 || finsFrameLen > 65536)
+                {
+                    throw new Exception($"无效的FINS帧长度: {finsFrameLen}");
+                }
+
+                // 读取FINS帧
+                byte[] finsFrame = new byte[finsFrameLen];
+                if (finsFrameLen > 0)
+                {
+                    await ReadExactAsync(finsFrame, 0, finsFrameLen);
+                }
+
+                DebugLog($"收到FINS帧: {BytesToHex(finsFrame)}");
+
+                // 组合响应: TCP头(16) + FINS帧
+                byte[] response = new byte[16 + finsFrameLen];
+                Array.Copy(tcpHeader, 0, response, 0, 16);
+                if (finsFrameLen > 0)
+                {
+                    Array.Copy(finsFrame, 0, response, 16, finsFrameLen);
+                }
+
+                // 检查响应码 (在FINS帧中的位置: FINS头(10) + 命令码(2) = 12)
+                if (finsFrameLen >= 14)
+                {
+                    byte mainCode = finsFrame[12];
+                    byte subCode = finsFrame[13];
+                    DebugLog($"响应码: Main=0x{mainCode:X2}, Sub=0x{subCode:X2}");
+
+                    if (mainCode != 0x00 || subCode != 0x00)
                     {
-                        int bytesRead = await _stream.ReadAsync(response, totalRead, Math.Min(fullLen - totalRead, response.Length - totalRead));
-                        if (bytesRead == 0)
-                            break;
-                        totalRead += bytesRead;
+                        string errorMsg = GetFinsErrorMessage(mainCode, subCode);
+                        throw new Exception($"FINS错误: {errorMsg} (0x{mainCode:X2}{subCode:X2})");
                     }
                 }
 
-                // 验证响应
-                if (totalRead < FINS_DATA_OFFSET)
-                    throw new Exception($"响应数据不完整，仅收到 {totalRead} 字节");
-
-                // 检查FINS标识
-                if (response[0] != 0x46 || response[1] != 0x49 || response[2] != 0x4E || response[3] != 0x53)
-                    throw new Exception("无效的FINS响应");
-
-                // 检查响应码
-                byte mainCode = response[FINS_RESPONSE_CODE_OFFSET];
-                byte subCode = response[FINS_RESPONSE_CODE_OFFSET + 1];
-                if (mainCode != 0x00 || subCode != 0x00)
-                {
-                    string errorMsg = GetFinsErrorMessage(mainCode, subCode);
-                    throw new Exception($"FINS错误: {errorMsg} (0x{mainCode:X2}{subCode:X2})");
-                }
-
-                // 返回完整响应
-                byte[] result = new byte[totalRead];
-                Array.Copy(response, result, totalRead);
-                return result;
+                return response;
             }
             finally
             {
@@ -519,14 +602,23 @@ namespace VisionOTA.Hardware.Plc
             }
         }
 
-        /// <summary>
-        /// 获取FINS错误消息
-        /// </summary>
+        private async Task ReadExactAsync(byte[] buffer, int offset, int count)
+        {
+            int totalRead = 0;
+            while (totalRead < count)
+            {
+                int bytesRead = await _stream.ReadAsync(buffer, offset + totalRead, count - totalRead);
+                if (bytesRead == 0)
+                    throw new Exception("连接已关闭");
+                totalRead += bytesRead;
+            }
+        }
+
         private string GetFinsErrorMessage(byte mainCode, byte subCode)
         {
             switch (mainCode)
             {
-                case 0x00: return "正常完成";
+                case 0x00: return subCode == 0x00 ? "成功" : $"警告(0x{subCode:X2})";
                 case 0x01: return "服务取消";
                 case 0x02: return "本地节点错误";
                 case 0x03: return "目标节点错误";
@@ -543,6 +635,10 @@ namespace VisionOTA.Hardware.Plc
             }
         }
 
+        #endregion
+
+        #region 读写实现
+
         public async Task<short> ReadWordAsync(string address)
         {
             if (!_isConnected)
@@ -554,13 +650,24 @@ namespace VisionOTA.Hardware.Plc
                 var command = BuildReadCommand(wordCode, addr, 0, 1);
                 var response = await SendAndReceiveAsync(command, 2);
 
-                // 数据从第30字节开始
-                short value = (short)((response[FINS_DATA_OFFSET] << 8) | response[FINS_DATA_OFFSET + 1]);
+                // 数据位置: TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2) = 30
+                // 即 payload[14] 开始
+                int dataOffset = 30;
+
+                if (response.Length < dataOffset + 2)
+                {
+                    DebugLog($"响应太短: {response.Length} 字节");
+                    throw new Exception("响应数据不完整");
+                }
+
+                // 大端序
+                short value = (short)((response[dataOffset] << 8) | response[dataOffset + 1]);
+                DebugLog($"读取 {address} = {value} (0x{(ushort)value:X4})");
                 return value;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"读取字失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"读取字失败 {address}: {ex.Message}");
                 throw;
             }
         }
@@ -573,14 +680,19 @@ namespace VisionOTA.Hardware.Plc
             try
             {
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
+
+                // 大端序
                 byte[] data = new byte[] { (byte)(value >> 8), (byte)(value & 0xFF) };
+
+                DebugLog($"写入 {address} = {value} (0x{(ushort)value:X4})");
+
                 var command = BuildWriteCommand(wordCode, addr, 0, data);
                 await SendAndReceiveAsync(command, 0);
                 return true;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"写入字失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"写入字失败 {address}: {ex.Message}");
                 return false;
             }
         }
@@ -596,21 +708,24 @@ namespace VisionOTA.Hardware.Plc
                 var command = BuildReadCommand(wordCode, addr, 0, 2);
                 var response = await SendAndReceiveAsync(command, 4);
 
-                // CDAB字节序转换
+                int dataOffset = 30;  // TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2)
+
+                // 欧姆龙PLC 32位数据: 低字在低地址，每字大端
+                // 读取: [低字高字节, 低字低字节, 高字高字节, 高字低字节]
+                // 需要转换为: [低字低字节, 低字高字节, 高字低字节, 高字高字节]
                 byte[] bytes = new byte[4];
-                bytes[0] = response[FINS_DATA_OFFSET + 2];
-                bytes[1] = response[FINS_DATA_OFFSET + 3];
-                bytes[2] = response[FINS_DATA_OFFSET];
-                bytes[3] = response[FINS_DATA_OFFSET + 1];
+                bytes[0] = response[dataOffset + 1];  // 低字低字节
+                bytes[1] = response[dataOffset];      // 低字高字节
+                bytes[2] = response[dataOffset + 3];  // 高字低字节
+                bytes[3] = response[dataOffset + 2];  // 高字高字节
 
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(bytes);
-
-                return BitConverter.ToInt32(bytes, 0);
+                int value = BitConverter.ToInt32(bytes, 0);
+                DebugLog($"读取双字 {address} = {value} (0x{value:X8})");
+                return value;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"读取双字失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"读取双字失败 {address}: {ex.Message}");
                 throw;
             }
         }
@@ -624,16 +739,16 @@ namespace VisionOTA.Hardware.Plc
             {
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
 
-                // CDAB字节序
                 byte[] intBytes = BitConverter.GetBytes(value);
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(intBytes);
 
+                // 转换为PLC格式: 低字(大端) + 高字(大端)
                 byte[] data = new byte[4];
-                data[0] = intBytes[2];
-                data[1] = intBytes[3];
-                data[2] = intBytes[0];
-                data[3] = intBytes[1];
+                data[0] = intBytes[1];  // 低字高字节
+                data[1] = intBytes[0];  // 低字低字节
+                data[2] = intBytes[3];  // 高字高字节
+                data[3] = intBytes[2];  // 高字低字节
+
+                DebugLog($"写入双字 {address} = {value}");
 
                 var command = BuildWriteCommand(wordCode, addr, 0, data);
                 await SendAndReceiveAsync(command, 0);
@@ -641,7 +756,7 @@ namespace VisionOTA.Hardware.Plc
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"写入双字失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"写入双字失败 {address}: {ex.Message}");
                 return false;
             }
         }
@@ -654,23 +769,22 @@ namespace VisionOTA.Hardware.Plc
             try
             {
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
+                if (!hasBit) bit = 0;
 
-                if (!hasBit)
-                {
-                    // 如果没有指定位号，默认读取第0位
-                    bit = 0;
-                }
-
-                // 方式1: 读取整个字然后提取位
+                // 读取整字然后提取位
                 var command = BuildReadCommand(wordCode, addr, 0, 1);
                 var response = await SendAndReceiveAsync(command, 2);
 
-                short word = (short)((response[FINS_DATA_OFFSET] << 8) | response[FINS_DATA_OFFSET + 1]);
-                return ((word >> bit) & 1) == 1;
+                int dataOffset = 30;  // TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2)
+                ushort word = (ushort)((response[dataOffset] << 8) | response[dataOffset + 1]);
+
+                bool value = ((word >> bit) & 1) == 1;
+                DebugLog($"读取位 {address} = {value}");
+                return value;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"读取位失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"读取位失败 {address}: {ex.Message}");
                 throw;
             }
         }
@@ -683,97 +797,50 @@ namespace VisionOTA.Hardware.Plc
             try
             {
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
-
-                if (!hasBit)
-                    bit = 0;
+                if (!hasBit) bit = 0;
 
                 // 读取-修改-写入
                 var readCmd = BuildReadCommand(wordCode, addr, 0, 1);
                 var response = await SendAndReceiveAsync(readCmd, 2);
 
-                short word = (short)((response[FINS_DATA_OFFSET] << 8) | response[FINS_DATA_OFFSET + 1]);
+                int dataOffset = 30;  // TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2)
+                ushort word = (ushort)((response[dataOffset] << 8) | response[dataOffset + 1]);
+
                 if (value)
-                    word |= (short)(1 << bit);
+                    word |= (ushort)(1 << bit);
                 else
-                    word &= (short)~(1 << bit);
+                    word &= (ushort)~(1 << bit);
 
                 byte[] data = new byte[] { (byte)(word >> 8), (byte)(word & 0xFF) };
+
+                DebugLog($"写入位 {address} = {value}");
+
                 var writeCmd = BuildWriteCommand(wordCode, addr, 0, data);
                 await SendAndReceiveAsync(writeCmd, 0);
                 return true;
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"写入位失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"写入位失败 {address}: {ex.Message}");
                 return false;
             }
         }
 
         public async Task<float> ReadFloatAsync(string address)
         {
-            if (!_isConnected)
-                throw new InvalidOperationException("PLC未连接");
-
-            try
-            {
-                var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
-                var command = BuildReadCommand(wordCode, addr, 0, 2);
-                var response = await SendAndReceiveAsync(command, 4);
-
-                // CDAB字节序
-                byte[] bytes = new byte[4];
-                bytes[0] = response[FINS_DATA_OFFSET + 2];
-                bytes[1] = response[FINS_DATA_OFFSET + 3];
-                bytes[2] = response[FINS_DATA_OFFSET];
-                bytes[3] = response[FINS_DATA_OFFSET + 1];
-
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(bytes);
-
-                return BitConverter.ToSingle(bytes, 0);
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"读取浮点数失败 {address}: {ex.Message}", ex, "FINS");
-                throw;
-            }
+            int intBits = await ReadDWordAsync(address);
+            return BitConverter.ToSingle(BitConverter.GetBytes(intBits), 0);
         }
 
         public async Task<bool> WriteFloatAsync(string address, float value)
         {
-            if (!_isConnected)
-                return false;
-
-            try
-            {
-                var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
-
-                byte[] floatBytes = BitConverter.GetBytes(value);
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(floatBytes);
-
-                // CDAB字节序
-                byte[] data = new byte[4];
-                data[0] = floatBytes[2];
-                data[1] = floatBytes[3];
-                data[2] = floatBytes[0];
-                data[3] = floatBytes[1];
-
-                var command = BuildWriteCommand(wordCode, addr, 0, data);
-                await SendAndReceiveAsync(command, 0);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"写入浮点数失败 {address}: {ex.Message}", ex, "FINS");
-                return false;
-            }
+            int intBits = BitConverter.ToInt32(BitConverter.GetBytes(value), 0);
+            return await WriteDWordAsync(address, intBits);
         }
 
         public async Task<ushort> ReadUIntAsync(string address)
         {
-            var value = await ReadWordAsync(address);
-            return (ushort)value;
+            return (ushort)await ReadWordAsync(address);
         }
 
         public async Task<bool> WriteUIntAsync(string address, ushort value)
@@ -783,8 +850,7 @@ namespace VisionOTA.Hardware.Plc
 
         public async Task<uint> ReadUDIntAsync(string address)
         {
-            var value = await ReadDWordAsync(address);
-            return (uint)value;
+            return (uint)await ReadDWordAsync(address);
         }
 
         public async Task<bool> WriteUDIntAsync(string address, uint value)
@@ -803,25 +869,24 @@ namespace VisionOTA.Hardware.Plc
                 var command = BuildReadCommand(wordCode, addr, 0, 4);
                 var response = await SendAndReceiveAsync(command, 8);
 
-                // CDAB字节序 (4个字)
-                byte[] bytes = new byte[8];
-                bytes[0] = response[FINS_DATA_OFFSET + 6];
-                bytes[1] = response[FINS_DATA_OFFSET + 7];
-                bytes[2] = response[FINS_DATA_OFFSET + 4];
-                bytes[3] = response[FINS_DATA_OFFSET + 5];
-                bytes[4] = response[FINS_DATA_OFFSET + 2];
-                bytes[5] = response[FINS_DATA_OFFSET + 3];
-                bytes[6] = response[FINS_DATA_OFFSET];
-                bytes[7] = response[FINS_DATA_OFFSET + 1];
+                int dataOffset = 30;  // TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2)
 
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(bytes);
+                byte[] bytes = new byte[8];
+                // 转换: 4个字，每字大端，低字在前
+                bytes[0] = response[dataOffset + 1];
+                bytes[1] = response[dataOffset];
+                bytes[2] = response[dataOffset + 3];
+                bytes[3] = response[dataOffset + 2];
+                bytes[4] = response[dataOffset + 5];
+                bytes[5] = response[dataOffset + 4];
+                bytes[6] = response[dataOffset + 7];
+                bytes[7] = response[dataOffset + 6];
 
                 return BitConverter.ToInt64(bytes, 0);
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"读取64位整数失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"读取64位整数失败 {address}: {ex.Message}");
                 throw;
             }
         }
@@ -836,19 +901,11 @@ namespace VisionOTA.Hardware.Plc
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
 
                 byte[] longBytes = BitConverter.GetBytes(value);
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(longBytes);
-
-                // CDAB字节序
                 byte[] data = new byte[8];
-                data[0] = longBytes[6];
-                data[1] = longBytes[7];
-                data[2] = longBytes[4];
-                data[3] = longBytes[5];
-                data[4] = longBytes[2];
-                data[5] = longBytes[3];
-                data[6] = longBytes[0];
-                data[7] = longBytes[1];
+                data[0] = longBytes[1]; data[1] = longBytes[0];
+                data[2] = longBytes[3]; data[3] = longBytes[2];
+                data[4] = longBytes[5]; data[5] = longBytes[4];
+                data[6] = longBytes[7]; data[7] = longBytes[6];
 
                 var command = BuildWriteCommand(wordCode, addr, 0, data);
                 await SendAndReceiveAsync(command, 0);
@@ -856,15 +913,14 @@ namespace VisionOTA.Hardware.Plc
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"写入64位整数失败 {address}: {ex.Message}", ex, "FINS");
+                DebugLog($"写入64位整数失败 {address}: {ex.Message}");
                 return false;
             }
         }
 
         public async Task<ulong> ReadULIntAsync(string address)
         {
-            var value = await ReadLIntAsync(address);
-            return (ulong)value;
+            return (ulong)await ReadLIntAsync(address);
         }
 
         public async Task<bool> WriteULIntAsync(string address, ulong value)
@@ -874,72 +930,17 @@ namespace VisionOTA.Hardware.Plc
 
         public async Task<double> ReadLRealAsync(string address)
         {
-            if (!_isConnected)
-                throw new InvalidOperationException("PLC未连接");
-
-            try
-            {
-                var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
-                var command = BuildReadCommand(wordCode, addr, 0, 4);
-                var response = await SendAndReceiveAsync(command, 8);
-
-                // CDAB字节序
-                byte[] bytes = new byte[8];
-                bytes[0] = response[FINS_DATA_OFFSET + 6];
-                bytes[1] = response[FINS_DATA_OFFSET + 7];
-                bytes[2] = response[FINS_DATA_OFFSET + 4];
-                bytes[3] = response[FINS_DATA_OFFSET + 5];
-                bytes[4] = response[FINS_DATA_OFFSET + 2];
-                bytes[5] = response[FINS_DATA_OFFSET + 3];
-                bytes[6] = response[FINS_DATA_OFFSET];
-                bytes[7] = response[FINS_DATA_OFFSET + 1];
-
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(bytes);
-
-                return BitConverter.ToDouble(bytes, 0);
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"读取双精度浮点数失败 {address}: {ex.Message}", ex, "FINS");
-                throw;
-            }
+            long longBits = await ReadLIntAsync(address);
+            return BitConverter.ToDouble(BitConverter.GetBytes(longBits), 0);
         }
 
         public async Task<bool> WriteLRealAsync(string address, double value)
         {
-            if (!_isConnected)
-                return false;
-
-            try
-            {
-                var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
-
-                byte[] doubleBytes = BitConverter.GetBytes(value);
-                if (!BitConverter.IsLittleEndian)
-                    Array.Reverse(doubleBytes);
-
-                // CDAB字节序
-                byte[] data = new byte[8];
-                data[0] = doubleBytes[6];
-                data[1] = doubleBytes[7];
-                data[2] = doubleBytes[4];
-                data[3] = doubleBytes[5];
-                data[4] = doubleBytes[2];
-                data[5] = doubleBytes[3];
-                data[6] = doubleBytes[0];
-                data[7] = doubleBytes[1];
-
-                var command = BuildWriteCommand(wordCode, addr, 0, data);
-                await SendAndReceiveAsync(command, 0);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"写入双精度浮点数失败 {address}: {ex.Message}", ex, "FINS");
-                return false;
-            }
+            long longBits = BitConverter.ToInt64(BitConverter.GetBytes(value), 0);
+            return await WriteLIntAsync(address, longBits);
         }
+
+        #endregion
 
         public void Dispose()
         {
