@@ -1,0 +1,41 @@
+{
+  "Connection": {
+    "IP": "192.168.1.1",
+    "Port": 9600,
+    "Timeout": 3000,
+    "ReconnectInterval": 5000
+  },
+  "OutputAddresses": {
+    "OutputValue": {
+      "Address": "D4400",
+      "DataType": "REAL",
+      "Description": "输出地址"
+    },
+    "RotationAngle": {
+      "Address": "D4402",
+      "DataType": "REAL",
+      "Description": "旋转地址"
+    },
+    "Result": {
+      "Address": "D4404",
+      "DataType": "REAL",
+      "Description": "良品地址 (1=OK, 0=NG)"
+    }
+  },
+  "InputAddresses": {
+    "Station1Trigger": {
+      "Address": "W0.00",
+      "DataType": "BOOL",
+      "Description": "工位1触发信号"
+    },
+    "Station2Trigger": {
+      "Address": "W0.01",
+      "DataType": "BOOL",
+      "Description": "工位2触发信号"
+    }
+  },
+  "Heartbeat": {
+    "Address": "D4410",
+    "Interval": 1000
+  }
+}

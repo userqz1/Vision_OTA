@@ -1,0 +1,14 @@
+{
+  "SystemName": "VisionOTA 视觉检测系统",
+  "ImageRootPath": "images",
+  "NgImagePath": "ng_images",
+  "LogPath": "logs",
+  "RecentImageCount": 100,
+  "NgImageRetentionDays": 30,
+  "SaveOkImages": false,
+  "AutoLogoutMinutes": 30,
+  "MaxLoginAttempts": 5,
+  "ConsecutiveFailureAlarmThreshold": 10,
+  "DiskSpaceAlarmThresholdGB": 10,
+  "StatisticsSaveInterval": 60
+}

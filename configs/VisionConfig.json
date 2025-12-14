@@ -1,0 +1,8 @@
+{
+  "Station1VppPath": "vision\\station1.vpp",
+  "Station2VppPath": "vision\\station2.vpp",
+  "ScoreThreshold": 0.7,
+  "Timeout": 5000,
+  "ShowIntermediateResults": false,
+  "EnableGraphicOverlay": true
+}

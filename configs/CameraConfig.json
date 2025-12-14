@@ -1,0 +1,26 @@
+{
+  "Station1": {
+    "Brand": "Mock",
+    "Type": "AreaScan",
+    "IP": "192.168.1.10",
+    "SerialNumber": "",
+    "Exposure": 5000,
+    "Gain": 1.0,
+    "TriggerSource": "Hardware",
+    "Timeout": 5000
+  },
+  "Station2": {
+    "Brand": "Mock",
+    "Type": "LineScan",
+    "IP": "192.168.1.11",
+    "SerialNumber": "",
+    "Exposure": 2000,
+    "Gain": 1.0,
+    "TriggerSource": "Hardware",
+    "Timeout": 5000,
+    "LineRate": 10000,
+    "LineCount": 4096
+  },
+  "SimulationImagePath": "simulation_images",
+  "SupportedBrands": ["Mock", "Dushen", "Hikvision", "Daheng", "Basler"]
+}

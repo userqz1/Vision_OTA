@@ -1,0 +1,411 @@
+<Window x:Class="VisionOTA.Main.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VisionOTA - 视觉检测系统"
+        Width="1920" Height="1080"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PrimaryBackgroundBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="32"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部栏 -->
+        <Border Grid.Row="0"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 标题 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="VisionOTA"
+                               Style="{StaticResource HeaderLabel}"
+                               VerticalAlignment="Center"/>
+                    <Rectangle Width="1" Height="24"
+                               Fill="{StaticResource BorderBrush}"
+                               Margin="16,0"/>
+                    <TextBlock Text="视觉检测系统"
+                               Style="{StaticResource BodyLabel}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 状态和控制 -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+                    <!-- 系统状态 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,24,0">
+                        <Ellipse Width="10" Height="10"
+                                 Fill="{Binding SystemStatusColor}"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding SystemStatus}"
+                                   Style="{StaticResource BodyLabel}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 控制按钮 -->
+                    <Button Content="启动"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding StartCommand}"
+                            Margin="0,0,8,0"
+                            Padding="24,8"/>
+                    <Button Content="停止"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding StopCommand}"
+                            Padding="24,8"/>
+
+                    <Rectangle Width="1" Height="24"
+                               Fill="{StaticResource BorderBrush}"
+                               Margin="16,0"/>
+
+                    <!-- 用户信息 -->
+                    <TextBlock Text="{Binding CurrentUser}"
+                               Style="{StaticResource BodyLabel}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0"/>
+                    <Button Content="登录"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ShowLoginCommand}"
+                            Visibility="{Binding IsLoggedIn, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
+                            Padding="16,8"/>
+                    <Button Content="登出"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding LogoutCommand}"
+                            Visibility="{Binding IsLoggedIn, Converter={StaticResource BoolToVisibility}}"
+                            Padding="16,8"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主内容区 -->
+        <Grid Grid.Row="1" Margin="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="320"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 工位1 -->
+            <Border Grid.Column="0" Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 工位1标题 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="工位 1" Style="{StaticResource SubHeaderLabel}"/>
+                        <TextBlock Text=" - 面阵相机" Style="{StaticResource BodyLabel}" VerticalAlignment="Center"/>
+                        <Ellipse Width="10" Height="10"
+                                 Fill="{Binding Station1StatusColor}"
+                                 VerticalAlignment="Center"
+                                 Margin="16,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- 工位1图像显示 -->
+                    <Border Grid.Row="1"
+                            Background="{StaticResource SecondaryBackgroundBrush}"
+                            CornerRadius="4">
+                        <Image x:Name="Station1Image"
+                               Source="{Binding Station1Image}"
+                               Stretch="Uniform"/>
+                    </Border>
+
+                    <!-- 工位1统计 -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="总数" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station1Total}" Style="{StaticResource DataLabel}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="OK" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station1Ok}" Style="{StaticResource DataLabel}" Foreground="{StaticResource SuccessBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="NG" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station1Ng}" Style="{StaticResource DataLabel}" Foreground="{StaticResource ErrorBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station1Rate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 工位2 -->
+            <Border Grid.Column="2" Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 工位2标题 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="工位 2" Style="{StaticResource SubHeaderLabel}"/>
+                        <TextBlock Text=" - 线扫相机" Style="{StaticResource BodyLabel}" VerticalAlignment="Center"/>
+                        <Ellipse Width="10" Height="10"
+                                 Fill="{Binding Station2StatusColor}"
+                                 VerticalAlignment="Center"
+                                 Margin="16,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- 工位2图像显示 -->
+                    <Border Grid.Row="1"
+                            Background="{StaticResource SecondaryBackgroundBrush}"
+                            CornerRadius="4">
+                        <Image x:Name="Station2Image"
+                               Source="{Binding Station2Image}"
+                               Stretch="Uniform"/>
+                    </Border>
+
+                    <!-- 工位2统计 -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="总数" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station2Total}" Style="{StaticResource DataLabel}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="OK" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station2Ok}" Style="{StaticResource DataLabel}" Foreground="{StaticResource SuccessBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="NG" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station2Ng}" Style="{StaticResource DataLabel}" Foreground="{StaticResource ErrorBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
+                            <TextBlock Text="{Binding Station2Rate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 侧边栏 -->
+            <Border Grid.Column="4" Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 最新结果 -->
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="最新结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
+
+                        <Border Background="{Binding LastResultBackground}"
+                                CornerRadius="4"
+                                Padding="16"
+                                Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LastResultText}"
+                                           FontSize="20"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding LastAngle, StringFormat=角度: {0:F2}}"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 功能菜单 -->
+                    <StackPanel Grid.Row="1">
+                        <TextBlock Text="功能菜单" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
+
+                        <Button Content="相机设置"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenCameraSettingsCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+                        <Button Content="PLC 设置"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenPlcSettingsCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+                        <Button Content="算法设置"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenVisionSettingsCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+                        <Button Content="统计报表"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenStatisticsCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+                        <Button Content="系统日志"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenLogCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+                        <Button Content="用户管理"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenUserManagementCommand}"
+                                HorizontalAlignment="Stretch"
+                                Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVisibility}}"/>
+                    </StackPanel>
+
+                    <!-- 设备状态 -->
+                    <StackPanel Grid.Row="2">
+                        <TextBlock Text="设备状态" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="PLC 连接" Style="{StaticResource BodyLabel}"/>
+                            <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding PlcStatusColor}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="工位1相机" Style="{StaticResource BodyLabel}"/>
+                            <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding Camera1StatusColor}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="工位2相机" Style="{StaticResource BodyLabel}"/>
+                            <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding Camera2StatusColor}"/>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="算法加载" Style="{StaticResource BodyLabel}"/>
+                            <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding VisionStatusColor}"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 底部状态栏 -->
+        <Border Grid.Row="2"
+                Background="{StaticResource SecondaryBackgroundBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Style="{StaticResource BodyLabel}"
+                           VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CurrentTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
+                           Style="{StaticResource BodyLabel}"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- 登录面板遮罩 -->
+        <Grid Grid.RowSpan="3"
+              Visibility="{Binding IsLoginPanelVisible, Converter={StaticResource BoolToVisibility}}"
+              Background="#80000000">
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Width="360"
+                    MinHeight="280"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="32">
+                <StackPanel>
+                    <TextBlock Text="用户登录"
+                               Style="{StaticResource SubHeaderLabel}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,24"/>
+
+                    <TextBlock Text="用户类型"
+                               Style="{StaticResource BodyLabel}"
+                               Margin="0,0,0,8"/>
+                    <ComboBox ItemsSource="{Binding UserTypes}"
+                              SelectedItem="{Binding SelectedUserType}"
+                              Padding="8"
+                              Margin="0,0,0,16"/>
+
+                    <TextBlock Text="密码"
+                               Style="{StaticResource BodyLabel}"
+                               Margin="0,0,0,8"/>
+                    <PasswordBox x:Name="PasswordBox"
+                                 Padding="8"
+                                 Margin="0,0,0,8"/>
+
+                    <TextBlock Text="{Binding LoginError}"
+                               Foreground="{StaticResource ErrorBrush}"
+                               FontSize="12"
+                               Margin="0,0,0,16"
+                               Visibility="{Binding LoginError, Converter={StaticResource StringToVisibility}}"/>
+
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0"
+                                Content="取消"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding CancelLoginCommand}"
+                                HorizontalAlignment="Stretch"/>
+                        <Button Grid.Column="2"
+                                Content="登录"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding LoginCommand}"
+                                HorizontalAlignment="Stretch"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

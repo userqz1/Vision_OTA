@@ -1,0 +1,29 @@
+[
+  {
+    "Username": "操作员",
+    "PasswordHash": "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae",
+    "Level": 1,
+    "IsDefaultAdmin": false,
+    "CreatedTime": "2024-01-01T00:00:00",
+    "LastLoginTime": null,
+    "IsEnabled": true
+  },
+  {
+    "Username": "工程师",
+    "PasswordHash": "9b871512327c09ce91dd649b3f96a63b7408ef267c8cc5710114e629730cb61f",
+    "Level": 2,
+    "IsDefaultAdmin": false,
+    "CreatedTime": "2024-01-01T00:00:00",
+    "LastLoginTime": null,
+    "IsEnabled": true
+  },
+  {
+    "Username": "管理员",
+    "PasswordHash": "5e968ce47ce4a17e3823c29332a39d049a8d0afb08d157eb6224625f92671a51",
+    "Level": 3,
+    "IsDefaultAdmin": true,
+    "CreatedTime": "2024-01-01T00:00:00",
+    "LastLoginTime": null,
+    "IsEnabled": true
+  }
+]
