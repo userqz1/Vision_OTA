@@ -61,7 +61,7 @@
   </ItemGroup>
   <!-- 度申相机SDK原生DLL - 自动复制到输出目录 -->
   <ItemGroup>
-    <Content Include="C:\Program Files (x86)\DVP2 SDK CN\library\x64\DVPCamera64.dll">
+    <Content Include="C:\Program Files (x86)\DVP2 SDK CN\library\Visual C++\bin\x64\DVPCamera64.dll">
       <Link>DVPCamera64.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
