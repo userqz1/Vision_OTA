@@ -165,7 +165,7 @@
                 <!-- 输出值 -->
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="输出值" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputValueAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding OutputValueType}" Style="{StaticResource LabelStyle}"/>
+                <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding OutputValueType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="1" Grid.Column="3" Background="#F0F0F0" Margin="2">
                     <TextBlock Text="{Binding OutputValueCurrent}" Style="{StaticResource ValueStyle}"/>
                 </Border>
@@ -176,7 +176,7 @@
                 <!-- 旋转角度 -->
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="旋转角度" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding RotationAngleType}" Style="{StaticResource LabelStyle}"/>
+                <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding RotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="2" Grid.Column="3" Background="#F0F0F0" Margin="2">
                     <TextBlock Text="{Binding RotationAngleCurrent}" Style="{StaticResource ValueStyle}"/>
                 </Border>
@@ -187,7 +187,7 @@
                 <!-- 结果 -->
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="结果" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResultAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding ResultType}" Style="{StaticResource LabelStyle}"/>
+                <ComboBox Grid.Row="3" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding ResultType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="3" Grid.Column="3" Background="#F0F0F0" Margin="2">
                     <TextBlock Text="{Binding ResultCurrent}" Style="{StaticResource ValueStyle}"/>
                 </Border>

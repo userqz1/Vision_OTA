@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -34,9 +35,14 @@ namespace VisionOTA.Main.ViewModels
         private string _resultCurrent = "--";
 
         // 写入值
-        private float _outputValueWrite;
-        private float _rotationAngleWrite;
-        private float _resultWrite;
+        private string _outputValueWrite = "0";
+        private string _rotationAngleWrite = "0";
+        private string _resultWrite = "0";
+
+        /// <summary>
+        /// 支持的数据类型
+        /// </summary>
+        public List<string> DataTypes { get; } = new List<string> { "WORD", "DWORD", "REAL", "BIT" };
 
         public event EventHandler<bool> RequestClose;
 
@@ -122,19 +128,19 @@ namespace VisionOTA.Main.ViewModels
         }
 
         // 写入值
-        public float OutputValueWrite
+        public string OutputValueWrite
         {
             get => _outputValueWrite;
             set => SetProperty(ref _outputValueWrite, value);
         }
 
-        public float RotationAngleWrite
+        public string RotationAngleWrite
         {
             get => _rotationAngleWrite;
             set => SetProperty(ref _rotationAngleWrite, value);
         }
 
-        public float ResultWrite
+        public string ResultWrite
         {
             get => _resultWrite;
             set => SetProperty(ref _resultWrite, value);
@@ -246,9 +252,8 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                var value = await _plc.ReadFloatAsync(OutputValueAddress);
-                OutputValueCurrent = value.ToString("F2");
-                FileLogger.Instance.Debug($"读取 {OutputValueAddress} = {value}", "PlcSettings");
+                OutputValueCurrent = await ReadByTypeAsync(OutputValueAddress, OutputValueType);
+                FileLogger.Instance.Debug($"读取 {OutputValueAddress} ({OutputValueType}) = {OutputValueCurrent}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -261,8 +266,8 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                await _plc.WriteFloatAsync(OutputValueAddress, OutputValueWrite);
-                FileLogger.Instance.Info($"写入 {OutputValueAddress} = {OutputValueWrite}", "PlcSettings");
+                await WriteByTypeAsync(OutputValueAddress, OutputValueType, OutputValueWrite);
+                FileLogger.Instance.Info($"写入 {OutputValueAddress} ({OutputValueType}) = {OutputValueWrite}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -275,9 +280,8 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                var value = await _plc.ReadFloatAsync(RotationAngleAddress);
-                RotationAngleCurrent = value.ToString("F2");
-                FileLogger.Instance.Debug($"读取 {RotationAngleAddress} = {value}", "PlcSettings");
+                RotationAngleCurrent = await ReadByTypeAsync(RotationAngleAddress, RotationAngleType);
+                FileLogger.Instance.Debug($"读取 {RotationAngleAddress} ({RotationAngleType}) = {RotationAngleCurrent}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -290,8 +294,8 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                await _plc.WriteFloatAsync(RotationAngleAddress, RotationAngleWrite);
-                FileLogger.Instance.Info($"写入 {RotationAngleAddress} = {RotationAngleWrite}", "PlcSettings");
+                await WriteByTypeAsync(RotationAngleAddress, RotationAngleType, RotationAngleWrite);
+                FileLogger.Instance.Info($"写入 {RotationAngleAddress} ({RotationAngleType}) = {RotationAngleWrite}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -304,9 +308,8 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                var value = await _plc.ReadFloatAsync(ResultAddress);
-                ResultCurrent = value.ToString("F2");
-                FileLogger.Instance.Debug($"读取 {ResultAddress} = {value}", "PlcSettings");
+                ResultCurrent = await ReadByTypeAsync(ResultAddress, ResultType);
+                FileLogger.Instance.Debug($"读取 {ResultAddress} ({ResultType}) = {ResultCurrent}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -319,13 +322,53 @@ namespace VisionOTA.Main.ViewModels
         {
             try
             {
-                await _plc.WriteFloatAsync(ResultAddress, ResultWrite);
-                FileLogger.Instance.Info($"写入 {ResultAddress} = {ResultWrite}", "PlcSettings");
+                await WriteByTypeAsync(ResultAddress, ResultType, ResultWrite);
+                FileLogger.Instance.Info($"写入 {ResultAddress} ({ResultType}) = {ResultWrite}", "PlcSettings");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"写入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 FileLogger.Instance.Error($"写入失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task<string> ReadByTypeAsync(string address, string dataType)
+        {
+            switch (dataType?.ToUpper())
+            {
+                case "WORD":
+                    var wordVal = await _plc.ReadWordAsync(address);
+                    return wordVal.ToString();
+                case "DWORD":
+                    var dwordVal = await _plc.ReadDWordAsync(address);
+                    return dwordVal.ToString();
+                case "BIT":
+                    var bitVal = await _plc.ReadBitAsync(address);
+                    return bitVal ? "1" : "0";
+                case "REAL":
+                default:
+                    var floatVal = await _plc.ReadFloatAsync(address);
+                    return floatVal.ToString("F2");
+            }
+        }
+
+        private async Task WriteByTypeAsync(string address, string dataType, string value)
+        {
+            switch (dataType?.ToUpper())
+            {
+                case "WORD":
+                    await _plc.WriteWordAsync(address, short.Parse(value));
+                    break;
+                case "DWORD":
+                    await _plc.WriteDWordAsync(address, int.Parse(value));
+                    break;
+                case "BIT":
+                    await _plc.WriteBitAsync(address, value == "1" || value.ToLower() == "true");
+                    break;
+                case "REAL":
+                default:
+                    await _plc.WriteFloatAsync(address, float.Parse(value));
+                    break;
             }
         }
 
@@ -347,10 +390,13 @@ namespace VisionOTA.Main.ViewModels
                 config.Connection.Port = Port;
                 config.Connection.Timeout = Timeout;
 
-                // 更新输出地址
+                // 更新输出地址和类型
                 config.OutputAddresses.OutputValue.Address = OutputValueAddress;
+                config.OutputAddresses.OutputValue.DataType = OutputValueType;
                 config.OutputAddresses.RotationAngle.Address = RotationAngleAddress;
+                config.OutputAddresses.RotationAngle.DataType = RotationAngleType;
                 config.OutputAddresses.Result.Address = ResultAddress;
+                config.OutputAddresses.Result.DataType = ResultType;
 
                 // 保存到文件
                 ConfigManager.Instance.SavePlcConfig();
