@@ -14,6 +14,9 @@ namespace VisionOTA.Main.ViewModels
     /// </summary>
     public class PlcSettingsViewModel : ViewModelBase
     {
+        private IPlcCommunication _plc;
+        private bool _isConnected;
+
         private string _ipAddress;
         private int _port;
         private int _timeout;
@@ -25,9 +28,25 @@ namespace VisionOTA.Main.ViewModels
         private string _resultAddress;
         private string _resultType;
 
+        // 当前读取值
+        private string _outputValueCurrent = "--";
+        private string _rotationAngleCurrent = "--";
+        private string _resultCurrent = "--";
+
+        // 写入值
+        private float _outputValueWrite;
+        private float _rotationAngleWrite;
+        private float _resultWrite;
+
         public event EventHandler<bool> RequestClose;
 
         #region Properties
+
+        public bool IsConnected
+        {
+            get => _isConnected;
+            set => SetProperty(ref _isConnected, value);
+        }
 
         public string IpAddress
         {
@@ -83,11 +102,59 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _resultType, value);
         }
 
+        // 当前值
+        public string OutputValueCurrent
+        {
+            get => _outputValueCurrent;
+            set => SetProperty(ref _outputValueCurrent, value);
+        }
+
+        public string RotationAngleCurrent
+        {
+            get => _rotationAngleCurrent;
+            set => SetProperty(ref _rotationAngleCurrent, value);
+        }
+
+        public string ResultCurrent
+        {
+            get => _resultCurrent;
+            set => SetProperty(ref _resultCurrent, value);
+        }
+
+        // 写入值
+        public float OutputValueWrite
+        {
+            get => _outputValueWrite;
+            set => SetProperty(ref _outputValueWrite, value);
+        }
+
+        public float RotationAngleWrite
+        {
+            get => _rotationAngleWrite;
+            set => SetProperty(ref _rotationAngleWrite, value);
+        }
+
+        public float ResultWrite
+        {
+            get => _resultWrite;
+            set => SetProperty(ref _resultWrite, value);
+        }
+
         #endregion
 
         #region Commands
 
-        public ICommand TestConnectionCommand { get; }
+        public ICommand ConnectCommand { get; }
+        public ICommand DisconnectCommand { get; }
+
+        public ICommand ReadOutputValueCommand { get; }
+        public ICommand WriteOutputValueCommand { get; }
+        public ICommand ReadRotationAngleCommand { get; }
+        public ICommand WriteRotationAngleCommand { get; }
+        public ICommand ReadResultCommand { get; }
+        public ICommand WriteResultCommand { get; }
+        public ICommand ReadAllCommand { get; }
+
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
 
@@ -96,7 +163,18 @@ namespace VisionOTA.Main.ViewModels
         public PlcSettingsViewModel()
         {
             Title = "PLC设置";
-            TestConnectionCommand = new RelayCommand(async _ => await TestConnectionAsync());
+
+            ConnectCommand = new RelayCommand(async _ => await ConnectAsync(), _ => !IsConnected);
+            DisconnectCommand = new RelayCommand(_ => Disconnect(), _ => IsConnected);
+
+            ReadOutputValueCommand = new RelayCommand(async _ => await ReadOutputValueAsync(), _ => IsConnected);
+            WriteOutputValueCommand = new RelayCommand(async _ => await WriteOutputValueAsync(), _ => IsConnected);
+            ReadRotationAngleCommand = new RelayCommand(async _ => await ReadRotationAngleAsync(), _ => IsConnected);
+            WriteRotationAngleCommand = new RelayCommand(async _ => await WriteRotationAngleAsync(), _ => IsConnected);
+            ReadResultCommand = new RelayCommand(async _ => await ReadResultAsync(), _ => IsConnected);
+            WriteResultCommand = new RelayCommand(async _ => await WriteResultAsync(), _ => IsConnected);
+            ReadAllCommand = new RelayCommand(async _ => await ReadAllAsync(), _ => IsConnected);
+
             SaveCommand = new RelayCommand(_ => Save());
             CancelCommand = new RelayCommand(_ => Cancel());
 
@@ -121,30 +199,144 @@ namespace VisionOTA.Main.ViewModels
             ResultType = config.OutputAddresses.Result.DataType;
         }
 
-        private async Task TestConnectionAsync()
+        private async Task ConnectAsync()
         {
             try
             {
-                using (var plc = new OmronFinsCommunication(IpAddress, Port))
+                _plc = new OmronFinsCommunication(IpAddress, Port);
+                var connected = await _plc.ConnectAsync();
+                if (connected)
                 {
-                    var connected = await plc.ConnectAsync();
-                    if (connected)
-                    {
-                        MessageBox.Show("PLC连接成功", "测试结果", MessageBoxButton.OK, MessageBoxImage.Information);
-                        FileLogger.Instance.Info($"PLC连接测试成功: {IpAddress}:{Port}", "PlcSettings");
-                    }
-                    else
-                    {
-                        MessageBox.Show("PLC连接失败", "测试结果", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        FileLogger.Instance.Warning($"PLC连接测试失败: {IpAddress}:{Port}", "PlcSettings");
-                    }
+                    IsConnected = true;
+                    FileLogger.Instance.Info($"PLC已连接: {IpAddress}:{Port}", "PlcSettings");
+                    CommandManager.InvalidateRequerySuggested();
+                }
+                else
+                {
+                    MessageBox.Show("PLC连接失败", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"连接测试出错: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                FileLogger.Instance.Error($"PLC连接测试异常: {ex.Message}", ex, "PlcSettings");
+                MessageBox.Show($"连接失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                FileLogger.Instance.Error($"PLC连接失败: {ex.Message}", ex, "PlcSettings");
             }
+        }
+
+        private void Disconnect()
+        {
+            try
+            {
+                _plc?.Dispose();
+                _plc = null;
+                IsConnected = false;
+                OutputValueCurrent = "--";
+                RotationAngleCurrent = "--";
+                ResultCurrent = "--";
+                FileLogger.Instance.Info("PLC已断开", "PlcSettings");
+                CommandManager.InvalidateRequerySuggested();
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"PLC断开失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task ReadOutputValueAsync()
+        {
+            try
+            {
+                var value = await _plc.ReadFloatAsync(OutputValueAddress);
+                OutputValueCurrent = value.ToString("F2");
+                FileLogger.Instance.Debug($"读取 {OutputValueAddress} = {value}", "PlcSettings");
+            }
+            catch (Exception ex)
+            {
+                OutputValueCurrent = "ERR";
+                FileLogger.Instance.Error($"读取失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task WriteOutputValueAsync()
+        {
+            try
+            {
+                await _plc.WriteFloatAsync(OutputValueAddress, OutputValueWrite);
+                FileLogger.Instance.Info($"写入 {OutputValueAddress} = {OutputValueWrite}", "PlcSettings");
+                await ReadOutputValueAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                FileLogger.Instance.Error($"写入失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task ReadRotationAngleAsync()
+        {
+            try
+            {
+                var value = await _plc.ReadFloatAsync(RotationAngleAddress);
+                RotationAngleCurrent = value.ToString("F2");
+                FileLogger.Instance.Debug($"读取 {RotationAngleAddress} = {value}", "PlcSettings");
+            }
+            catch (Exception ex)
+            {
+                RotationAngleCurrent = "ERR";
+                FileLogger.Instance.Error($"读取失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task WriteRotationAngleAsync()
+        {
+            try
+            {
+                await _plc.WriteFloatAsync(RotationAngleAddress, RotationAngleWrite);
+                FileLogger.Instance.Info($"写入 {RotationAngleAddress} = {RotationAngleWrite}", "PlcSettings");
+                await ReadRotationAngleAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                FileLogger.Instance.Error($"写入失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task ReadResultAsync()
+        {
+            try
+            {
+                var value = await _plc.ReadFloatAsync(ResultAddress);
+                ResultCurrent = value.ToString("F2");
+                FileLogger.Instance.Debug($"读取 {ResultAddress} = {value}", "PlcSettings");
+            }
+            catch (Exception ex)
+            {
+                ResultCurrent = "ERR";
+                FileLogger.Instance.Error($"读取失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task WriteResultAsync()
+        {
+            try
+            {
+                await _plc.WriteFloatAsync(ResultAddress, ResultWrite);
+                FileLogger.Instance.Info($"写入 {ResultAddress} = {ResultWrite}", "PlcSettings");
+                await ReadResultAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                FileLogger.Instance.Error($"写入失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task ReadAllAsync()
+        {
+            await ReadOutputValueAsync();
+            await ReadRotationAngleAsync();
+            await ReadResultAsync();
         }
 
         private void Save()
@@ -180,6 +372,12 @@ namespace VisionOTA.Main.ViewModels
         private void Cancel()
         {
             RequestClose?.Invoke(this, false);
+        }
+
+        public override void Cleanup()
+        {
+            Disconnect();
+            base.Cleanup();
         }
     }
 }
