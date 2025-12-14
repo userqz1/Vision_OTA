@@ -263,15 +263,6 @@ namespace VisionOTA.Main.ViewModels
             {
                 await _plc.WriteFloatAsync(OutputValueAddress, OutputValueWrite);
                 FileLogger.Instance.Info($"写入 {OutputValueAddress} = {OutputValueWrite}", "PlcSettings");
-
-                // 读取验证
-                var readBack = await _plc.ReadFloatAsync(OutputValueAddress);
-                OutputValueCurrent = readBack.ToString("F2");
-
-                if (Math.Abs(readBack - OutputValueWrite) > 0.01f)
-                {
-                    MessageBox.Show($"写入验证失败\n写入值: {OutputValueWrite}\n读取值: {readBack}", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
             }
             catch (Exception ex)
             {
@@ -301,15 +292,6 @@ namespace VisionOTA.Main.ViewModels
             {
                 await _plc.WriteFloatAsync(RotationAngleAddress, RotationAngleWrite);
                 FileLogger.Instance.Info($"写入 {RotationAngleAddress} = {RotationAngleWrite}", "PlcSettings");
-
-                // 读取验证
-                var readBack = await _plc.ReadFloatAsync(RotationAngleAddress);
-                RotationAngleCurrent = readBack.ToString("F2");
-
-                if (Math.Abs(readBack - RotationAngleWrite) > 0.01f)
-                {
-                    MessageBox.Show($"写入验证失败\n写入值: {RotationAngleWrite}\n读取值: {readBack}", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
             }
             catch (Exception ex)
             {
@@ -339,15 +321,6 @@ namespace VisionOTA.Main.ViewModels
             {
                 await _plc.WriteFloatAsync(ResultAddress, ResultWrite);
                 FileLogger.Instance.Info($"写入 {ResultAddress} = {ResultWrite}", "PlcSettings");
-
-                // 读取验证
-                var readBack = await _plc.ReadFloatAsync(ResultAddress);
-                ResultCurrent = readBack.ToString("F2");
-
-                if (Math.Abs(readBack - ResultWrite) > 0.01f)
-                {
-                    MessageBox.Show($"写入验证失败\n写入值: {ResultWrite}\n读取值: {readBack}", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
             }
             catch (Exception ex)
             {
