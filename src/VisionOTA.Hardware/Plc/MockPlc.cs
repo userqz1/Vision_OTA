@@ -136,6 +136,90 @@ namespace VisionOTA.Hardware.Plc
             return Task.FromResult(true);
         }
 
+        public Task<ushort> ReadUIntAsync(string address)
+        {
+            if (!_isConnected)
+                return Task.FromResult<ushort>(0);
+
+            var value = _wordMemory.ContainsKey(address) ? (ushort)_wordMemory[address] : (ushort)0;
+            return Task.FromResult(value);
+        }
+
+        public Task<bool> WriteUIntAsync(string address, ushort value)
+        {
+            if (!_isConnected)
+                return Task.FromResult(false);
+
+            _wordMemory[address] = value;
+            return Task.FromResult(true);
+        }
+
+        public Task<uint> ReadUDIntAsync(string address)
+        {
+            if (!_isConnected)
+                return Task.FromResult<uint>(0);
+
+            var value = _wordMemory.ContainsKey(address) ? (uint)_wordMemory[address] : 0u;
+            return Task.FromResult(value);
+        }
+
+        public Task<bool> WriteUDIntAsync(string address, uint value)
+        {
+            if (!_isConnected)
+                return Task.FromResult(false);
+
+            _wordMemory[address] = (int)value;
+            return Task.FromResult(true);
+        }
+
+        public Task<long> ReadLIntAsync(string address)
+        {
+            if (!_isConnected)
+                return Task.FromResult<long>(0);
+
+            return Task.FromResult<long>(0);
+        }
+
+        public Task<bool> WriteLIntAsync(string address, long value)
+        {
+            if (!_isConnected)
+                return Task.FromResult(false);
+
+            return Task.FromResult(true);
+        }
+
+        public Task<ulong> ReadULIntAsync(string address)
+        {
+            if (!_isConnected)
+                return Task.FromResult<ulong>(0);
+
+            return Task.FromResult<ulong>(0);
+        }
+
+        public Task<bool> WriteULIntAsync(string address, ulong value)
+        {
+            if (!_isConnected)
+                return Task.FromResult(false);
+
+            return Task.FromResult(true);
+        }
+
+        public Task<double> ReadLRealAsync(string address)
+        {
+            if (!_isConnected)
+                return Task.FromResult<double>(0);
+
+            return Task.FromResult<double>(0);
+        }
+
+        public Task<bool> WriteLRealAsync(string address, double value)
+        {
+            if (!_isConnected)
+                return Task.FromResult(false);
+
+            return Task.FromResult(true);
+        }
+
         /// <summary>
         /// 模拟触发信号（供测试使用）
         /// </summary>

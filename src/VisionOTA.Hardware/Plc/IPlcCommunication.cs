@@ -95,17 +95,67 @@ namespace VisionOTA.Hardware.Plc
         Task<bool> WriteBitAsync(string address, bool value);
 
         /// <summary>
-        /// 读取浮点数
+        /// 读取浮点数 (REAL - 32位)
         /// </summary>
         /// <param name="address">地址</param>
         /// <returns>浮点数值</returns>
         Task<float> ReadFloatAsync(string address);
 
         /// <summary>
-        /// 写入浮点数
+        /// 写入浮点数 (REAL - 32位)
         /// </summary>
         /// <param name="address">地址</param>
         /// <param name="value">值</param>
         Task<bool> WriteFloatAsync(string address, float value);
+
+        /// <summary>
+        /// 读取无符号16位整数 (UINT)
+        /// </summary>
+        Task<ushort> ReadUIntAsync(string address);
+
+        /// <summary>
+        /// 写入无符号16位整数 (UINT)
+        /// </summary>
+        Task<bool> WriteUIntAsync(string address, ushort value);
+
+        /// <summary>
+        /// 读取无符号32位整数 (UDINT)
+        /// </summary>
+        Task<uint> ReadUDIntAsync(string address);
+
+        /// <summary>
+        /// 写入无符号32位整数 (UDINT)
+        /// </summary>
+        Task<bool> WriteUDIntAsync(string address, uint value);
+
+        /// <summary>
+        /// 读取64位有符号整数 (LINT) - NJ/NX系列
+        /// </summary>
+        Task<long> ReadLIntAsync(string address);
+
+        /// <summary>
+        /// 写入64位有符号整数 (LINT) - NJ/NX系列
+        /// </summary>
+        Task<bool> WriteLIntAsync(string address, long value);
+
+        /// <summary>
+        /// 读取无符号64位整数 (ULINT) - NJ/NX系列
+        /// </summary>
+        Task<ulong> ReadULIntAsync(string address);
+
+        /// <summary>
+        /// 写入无符号64位整数 (ULINT) - NJ/NX系列
+        /// </summary>
+        Task<bool> WriteULIntAsync(string address, ulong value);
+
+        /// <summary>
+        /// 读取64位双精度浮点数 (LREAL) - NJ/NX系列
+        /// </summary>
+        Task<double> ReadLRealAsync(string address);
+
+        /// <summary>
+        /// 写入64位双精度浮点数 (LREAL) - NJ/NX系列
+        /// </summary>
+        Task<bool> WriteLRealAsync(string address, double value);
     }
 }

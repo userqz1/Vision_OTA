@@ -29,11 +29,19 @@ namespace VisionOTA.Hardware.Plc
         private const byte FINS_MEMORY_READ = 0x01;
         private const byte FINS_MEMORY_WRITE = 0x02;
 
-        // 内存区域代码
+        // 内存区域代码 - 字访问 (Word)
         private const byte AREA_DM_WORD = 0x82;     // D区 字访问
+        private const byte AREA_CIO_WORD = 0xB0;    // CIO区 字访问
+        private const byte AREA_WR_WORD = 0xB1;     // W区 字访问
+        private const byte AREA_HR_WORD = 0xB2;     // H区 字访问
+        private const byte AREA_AR_WORD = 0xB3;     // A区 字访问
+
+        // 内存区域代码 - 位访问 (Bit)
         private const byte AREA_DM_BIT = 0x02;      // D区 位访问
-        private const byte AREA_WR_BIT = 0x31;      // W区 位访问
         private const byte AREA_CIO_BIT = 0x30;     // CIO区 位访问
+        private const byte AREA_WR_BIT = 0x31;      // W区 位访问
+        private const byte AREA_HR_BIT = 0x32;      // H区 位访问
+        private const byte AREA_AR_BIT = 0x33;      // A区 位访问
 
         public bool IsConnected => _isConnected;
 
@@ -249,65 +257,87 @@ namespace VisionOTA.Hardware.Plc
         }
 
         /// <summary>
-        /// 解析地址字符串 (如 D4400, W0.00)
+        /// 解析地址字符串 (如 D4400, W0.00, H100, A50)
         /// </summary>
-        private (byte areaCode, ushort address, byte bit) ParseAddress(string addressStr)
+        /// <param name="addressStr">地址字符串</param>
+        /// <param name="isBitAccess">是否位访问</param>
+        /// <returns>区域代码、地址、位号</returns>
+        private (byte areaCode, ushort address, byte bit) ParseAddress(string addressStr, bool isBitAccess = false)
         {
             addressStr = addressStr.ToUpper().Trim();
-            byte areaCode;
+            byte wordCode, bitCode;
             ushort address;
             byte bit = 0;
+            bool hasBit = false;
+
+            string addrPart;
 
             if (addressStr.StartsWith("D"))
             {
-                areaCode = AREA_DM_WORD;
-                var addrPart = addressStr.Substring(1);
-                if (addrPart.Contains("."))
-                {
-                    var parts = addrPart.Split('.');
-                    address = ushort.Parse(parts[0]);
-                    bit = byte.Parse(parts[1]);
-                    areaCode = AREA_DM_BIT;
-                }
-                else
-                {
-                    address = ushort.Parse(addrPart);
-                }
+                wordCode = AREA_DM_WORD;
+                bitCode = AREA_DM_BIT;
+                addrPart = addressStr.Substring(1);
             }
             else if (addressStr.StartsWith("W"))
             {
-                areaCode = AREA_WR_BIT;
-                var addrPart = addressStr.Substring(1);
-                if (addrPart.Contains("."))
-                {
-                    var parts = addrPart.Split('.');
-                    address = ushort.Parse(parts[0]);
-                    bit = byte.Parse(parts[1]);
-                }
-                else
-                {
-                    address = ushort.Parse(addrPart);
-                }
+                wordCode = AREA_WR_WORD;
+                bitCode = AREA_WR_BIT;
+                addrPart = addressStr.Substring(1);
             }
-            else if (addressStr.StartsWith("CIO") || char.IsDigit(addressStr[0]))
+            else if (addressStr.StartsWith("H"))
             {
-                areaCode = AREA_CIO_BIT;
-                var addrPart = addressStr.StartsWith("CIO") ? addressStr.Substring(3) : addressStr;
-                if (addrPart.Contains("."))
-                {
-                    var parts = addrPart.Split('.');
-                    address = ushort.Parse(parts[0]);
-                    bit = byte.Parse(parts[1]);
-                }
-                else
-                {
-                    address = ushort.Parse(addrPart);
-                }
+                wordCode = AREA_HR_WORD;
+                bitCode = AREA_HR_BIT;
+                addrPart = addressStr.Substring(1);
+            }
+            else if (addressStr.StartsWith("A"))
+            {
+                wordCode = AREA_AR_WORD;
+                bitCode = AREA_AR_BIT;
+                addrPart = addressStr.Substring(1);
+            }
+            else if (addressStr.StartsWith("CIO"))
+            {
+                wordCode = AREA_CIO_WORD;
+                bitCode = AREA_CIO_BIT;
+                addrPart = addressStr.Substring(3);
+            }
+            else if (addressStr.StartsWith("C"))
+            {
+                // C100 等同于 CIO100
+                wordCode = AREA_CIO_WORD;
+                bitCode = AREA_CIO_BIT;
+                addrPart = addressStr.Substring(1);
+            }
+            else if (char.IsDigit(addressStr[0]))
+            {
+                // 纯数字默认为CIO区
+                wordCode = AREA_CIO_WORD;
+                bitCode = AREA_CIO_BIT;
+                addrPart = addressStr;
             }
             else
             {
                 throw new ArgumentException($"不支持的地址格式: {addressStr}");
             }
+
+            // 解析地址和位号
+            if (addrPart.Contains("."))
+            {
+                var parts = addrPart.Split('.');
+                address = ushort.Parse(parts[0]);
+                bit = byte.Parse(parts[1]);
+                hasBit = true;
+                if (bit > 15)
+                    throw new ArgumentException($"位号必须在0-15之间: {addressStr}");
+            }
+            else
+            {
+                address = ushort.Parse(addrPart);
+            }
+
+            // 根据访问类型选择区域代码
+            byte areaCode = (isBitAccess || hasBit) ? bitCode : wordCode;
 
             return (areaCode, address, bit);
         }
@@ -599,25 +629,345 @@ namespace VisionOTA.Hardware.Plc
 
         public async Task<float> ReadFloatAsync(string address)
         {
-            var intValue = await ReadDWordAsync(address);
-            // 欧姆龙使用大端序存储浮点数
-            byte[] bytes = BitConverter.GetBytes(intValue);
-            if (BitConverter.IsLittleEndian)
+            if (!_isConnected)
+                throw new InvalidOperationException("PLC未连接");
+
+            try
             {
-                Array.Reverse(bytes);
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+                    var command = BuildReadCommand(areaCode, addr, bit, 2);
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 34)
+                    {
+                        if (response[28] == 0x00 && response[29] == 0x00)
+                        {
+                            // 欧姆龙使用CDAB字节序 (Big-endian words, little-endian word order)
+                            // 从PLC读取: [高字高字节][高字低字节][低字高字节][低字低字节]
+                            // 转换为: [低字高字节][低字低字节][高字高字节][高字低字节]
+                            byte[] bytes = new byte[4];
+                            bytes[0] = response[32]; // 低字高字节
+                            bytes[1] = response[33]; // 低字低字节
+                            bytes[2] = response[30]; // 高字高字节
+                            bytes[3] = response[31]; // 高字低字节
+
+                            if (!BitConverter.IsLittleEndian)
+                                Array.Reverse(bytes);
+
+                            return BitConverter.ToSingle(bytes, 0);
+                        }
+                    }
+                    return 0;
+                }
             }
-            return BitConverter.ToSingle(bytes, 0);
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"读取浮点数失败 {address}: {ex.Message}", ex, "FINS");
+                throw;
+            }
         }
 
         public async Task<bool> WriteFloatAsync(string address, float value)
         {
-            byte[] bytes = BitConverter.GetBytes(value);
-            if (BitConverter.IsLittleEndian)
+            if (!_isConnected)
+                return false;
+
+            try
             {
-                Array.Reverse(bytes);
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+
+                    // 转换为CDAB字节序
+                    byte[] floatBytes = BitConverter.GetBytes(value);
+                    if (!BitConverter.IsLittleEndian)
+                        Array.Reverse(floatBytes);
+
+                    // CDAB: 交换两个字的位置
+                    byte[] data = new byte[4];
+                    data[0] = floatBytes[2]; // 高字高字节
+                    data[1] = floatBytes[3]; // 高字低字节
+                    data[2] = floatBytes[0]; // 低字高字节
+                    data[3] = floatBytes[1]; // 低字低字节
+
+                    var command = BuildWriteCommand(areaCode, addr, bit, data);
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 30)
+                    {
+                        return response[28] == 0x00 && response[29] == 0x00;
+                    }
+                    return false;
+                }
             }
-            int intValue = BitConverter.ToInt32(bytes, 0);
-            return await WriteDWordAsync(address, intValue);
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"写入浮点数失败 {address}: {ex.Message}", ex, "FINS");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 读取无符号16位整数 (UINT)
+        /// </summary>
+        public async Task<ushort> ReadUIntAsync(string address)
+        {
+            var value = await ReadWordAsync(address);
+            return (ushort)value;
+        }
+
+        /// <summary>
+        /// 写入无符号16位整数 (UINT)
+        /// </summary>
+        public async Task<bool> WriteUIntAsync(string address, ushort value)
+        {
+            return await WriteWordAsync(address, (short)value);
+        }
+
+        /// <summary>
+        /// 读取无符号32位整数 (UDINT)
+        /// </summary>
+        public async Task<uint> ReadUDIntAsync(string address)
+        {
+            var value = await ReadDWordAsync(address);
+            return (uint)value;
+        }
+
+        /// <summary>
+        /// 写入无符号32位整数 (UDINT)
+        /// </summary>
+        public async Task<bool> WriteUDIntAsync(string address, uint value)
+        {
+            return await WriteDWordAsync(address, (int)value);
+        }
+
+        /// <summary>
+        /// 读取64位有符号整数 (LINT) - NJ/NX系列
+        /// </summary>
+        public async Task<long> ReadLIntAsync(string address)
+        {
+            if (!_isConnected)
+                throw new InvalidOperationException("PLC未连接");
+
+            try
+            {
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+                    var command = BuildReadCommand(areaCode, addr, bit, 4); // 读4个字
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 38)
+                    {
+                        if (response[28] == 0x00 && response[29] == 0x00)
+                        {
+                            // CDAB字节序转换 (4个字)
+                            byte[] bytes = new byte[8];
+                            bytes[0] = response[36];
+                            bytes[1] = response[37];
+                            bytes[2] = response[34];
+                            bytes[3] = response[35];
+                            bytes[4] = response[32];
+                            bytes[5] = response[33];
+                            bytes[6] = response[30];
+                            bytes[7] = response[31];
+
+                            if (!BitConverter.IsLittleEndian)
+                                Array.Reverse(bytes);
+
+                            return BitConverter.ToInt64(bytes, 0);
+                        }
+                    }
+                    return 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"读取64位整数失败 {address}: {ex.Message}", ex, "FINS");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 写入64位有符号整数 (LINT) - NJ/NX系列
+        /// </summary>
+        public async Task<bool> WriteLIntAsync(string address, long value)
+        {
+            if (!_isConnected)
+                return false;
+
+            try
+            {
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+
+                    byte[] longBytes = BitConverter.GetBytes(value);
+                    if (!BitConverter.IsLittleEndian)
+                        Array.Reverse(longBytes);
+
+                    // CDAB字节序
+                    byte[] data = new byte[8];
+                    data[0] = longBytes[6];
+                    data[1] = longBytes[7];
+                    data[2] = longBytes[4];
+                    data[3] = longBytes[5];
+                    data[4] = longBytes[2];
+                    data[5] = longBytes[3];
+                    data[6] = longBytes[0];
+                    data[7] = longBytes[1];
+
+                    var command = BuildWriteCommand(areaCode, addr, bit, data);
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 30)
+                    {
+                        return response[28] == 0x00 && response[29] == 0x00;
+                    }
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"写入64位整数失败 {address}: {ex.Message}", ex, "FINS");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 读取无符号64位整数 (ULINT) - NJ/NX系列
+        /// </summary>
+        public async Task<ulong> ReadULIntAsync(string address)
+        {
+            var value = await ReadLIntAsync(address);
+            return (ulong)value;
+        }
+
+        /// <summary>
+        /// 写入无符号64位整数 (ULINT) - NJ/NX系列
+        /// </summary>
+        public async Task<bool> WriteULIntAsync(string address, ulong value)
+        {
+            return await WriteLIntAsync(address, (long)value);
+        }
+
+        /// <summary>
+        /// 读取64位双精度浮点数 (LREAL) - NJ/NX系列
+        /// </summary>
+        public async Task<double> ReadLRealAsync(string address)
+        {
+            if (!_isConnected)
+                throw new InvalidOperationException("PLC未连接");
+
+            try
+            {
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+                    var command = BuildReadCommand(areaCode, addr, bit, 4);
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 38)
+                    {
+                        if (response[28] == 0x00 && response[29] == 0x00)
+                        {
+                            // CDAB字节序
+                            byte[] bytes = new byte[8];
+                            bytes[0] = response[36];
+                            bytes[1] = response[37];
+                            bytes[2] = response[34];
+                            bytes[3] = response[35];
+                            bytes[4] = response[32];
+                            bytes[5] = response[33];
+                            bytes[6] = response[30];
+                            bytes[7] = response[31];
+
+                            if (!BitConverter.IsLittleEndian)
+                                Array.Reverse(bytes);
+
+                            return BitConverter.ToDouble(bytes, 0);
+                        }
+                    }
+                    return 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"读取双精度浮点数失败 {address}: {ex.Message}", ex, "FINS");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 写入64位双精度浮点数 (LREAL) - NJ/NX系列
+        /// </summary>
+        public async Task<bool> WriteLRealAsync(string address, double value)
+        {
+            if (!_isConnected)
+                return false;
+
+            try
+            {
+                lock (_lockObject)
+                {
+                    var (areaCode, addr, bit) = ParseAddress(address);
+
+                    byte[] doubleBytes = BitConverter.GetBytes(value);
+                    if (!BitConverter.IsLittleEndian)
+                        Array.Reverse(doubleBytes);
+
+                    // CDAB字节序
+                    byte[] data = new byte[8];
+                    data[0] = doubleBytes[6];
+                    data[1] = doubleBytes[7];
+                    data[2] = doubleBytes[4];
+                    data[3] = doubleBytes[5];
+                    data[4] = doubleBytes[2];
+                    data[5] = doubleBytes[3];
+                    data[6] = doubleBytes[0];
+                    data[7] = doubleBytes[1];
+
+                    var command = BuildWriteCommand(areaCode, addr, bit, data);
+
+                    _stream.Write(command, 0, command.Length);
+
+                    byte[] response = new byte[256];
+                    int bytesRead = _stream.Read(response, 0, response.Length);
+
+                    if (bytesRead >= 30)
+                    {
+                        return response[28] == 0x00 && response[29] == 0x00;
+                    }
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"写入双精度浮点数失败 {address}: {ex.Message}", ex, "FINS");
+                return false;
+            }
         }
 
         public void Dispose()

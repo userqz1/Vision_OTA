@@ -42,7 +42,18 @@ namespace VisionOTA.Main.ViewModels
         /// <summary>
         /// 支持的数据类型
         /// </summary>
-        public List<string> DataTypes { get; } = new List<string> { "WORD", "DWORD", "REAL", "BIT" };
+        public List<string> DataTypes { get; } = new List<string>
+        {
+            "BOOL",   // 单个位
+            "INT",    // 16位有符号整数
+            "UINT",   // 16位无符号整数
+            "DINT",   // 32位有符号整数
+            "UDINT",  // 32位无符号整数
+            "LINT",   // 64位有符号整数 (NJ/NX)
+            "ULINT",  // 64位无符号整数 (NJ/NX)
+            "REAL",   // 32位单精度浮点数
+            "LREAL"   // 64位双精度浮点数 (NJ/NX)
+        };
 
         public event EventHandler<bool> RequestClose;
 
@@ -336,19 +347,45 @@ namespace VisionOTA.Main.ViewModels
         {
             switch (dataType?.ToUpper())
             {
-                case "WORD":
-                    var wordVal = await _plc.ReadWordAsync(address);
-                    return wordVal.ToString();
-                case "DWORD":
-                    var dwordVal = await _plc.ReadDWordAsync(address);
-                    return dwordVal.ToString();
-                case "BIT":
-                    var bitVal = await _plc.ReadBitAsync(address);
-                    return bitVal ? "1" : "0";
+                case "BOOL":
+                    var boolVal = await _plc.ReadBitAsync(address);
+                    return boolVal ? "TRUE" : "FALSE";
+
+                case "INT":
+                    var intVal = await _plc.ReadWordAsync(address);
+                    return intVal.ToString();
+
+                case "UINT":
+                    var uintVal = await _plc.ReadUIntAsync(address);
+                    return uintVal.ToString();
+
+                case "DINT":
+                    var dintVal = await _plc.ReadDWordAsync(address);
+                    return dintVal.ToString();
+
+                case "UDINT":
+                    var udintVal = await _plc.ReadUDIntAsync(address);
+                    return udintVal.ToString();
+
+                case "LINT":
+                    var lintVal = await _plc.ReadLIntAsync(address);
+                    return lintVal.ToString();
+
+                case "ULINT":
+                    var ulintVal = await _plc.ReadULIntAsync(address);
+                    return ulintVal.ToString();
+
                 case "REAL":
+                    var realVal = await _plc.ReadFloatAsync(address);
+                    return realVal.ToString("F4");
+
+                case "LREAL":
+                    var lrealVal = await _plc.ReadLRealAsync(address);
+                    return lrealVal.ToString("F6");
+
                 default:
-                    var floatVal = await _plc.ReadFloatAsync(address);
-                    return floatVal.ToString("F2");
+                    var defaultVal = await _plc.ReadWordAsync(address);
+                    return defaultVal.ToString();
             }
         }
 
@@ -356,18 +393,45 @@ namespace VisionOTA.Main.ViewModels
         {
             switch (dataType?.ToUpper())
             {
-                case "WORD":
+                case "BOOL":
+                    var boolValue = value == "1" || value.ToUpper() == "TRUE";
+                    await _plc.WriteBitAsync(address, boolValue);
+                    break;
+
+                case "INT":
                     await _plc.WriteWordAsync(address, short.Parse(value));
                     break;
-                case "DWORD":
+
+                case "UINT":
+                    await _plc.WriteUIntAsync(address, ushort.Parse(value));
+                    break;
+
+                case "DINT":
                     await _plc.WriteDWordAsync(address, int.Parse(value));
                     break;
-                case "BIT":
-                    await _plc.WriteBitAsync(address, value == "1" || value.ToLower() == "true");
+
+                case "UDINT":
+                    await _plc.WriteUDIntAsync(address, uint.Parse(value));
                     break;
+
+                case "LINT":
+                    await _plc.WriteLIntAsync(address, long.Parse(value));
+                    break;
+
+                case "ULINT":
+                    await _plc.WriteULIntAsync(address, ulong.Parse(value));
+                    break;
+
                 case "REAL":
-                default:
                     await _plc.WriteFloatAsync(address, float.Parse(value));
+                    break;
+
+                case "LREAL":
+                    await _plc.WriteLRealAsync(address, double.Parse(value));
+                    break;
+
+                default:
+                    await _plc.WriteWordAsync(address, short.Parse(value));
                     break;
             }
         }
