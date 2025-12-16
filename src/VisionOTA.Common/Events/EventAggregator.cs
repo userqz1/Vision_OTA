@@ -152,5 +152,16 @@ namespace VisionOTA.Common.Events
         public DateTime LoginTime { get; set; }
     }
 
+    /// <summary>
+    /// 瓶身旋转控制命令
+    /// </summary>
+    public class BottleRotateCommand
+    {
+        /// <summary>
+        /// 是否旋转 (true=旋转, false=停止)
+        /// </summary>
+        public bool Rotate { get; set; }
+    }
+
     #endregion
 }

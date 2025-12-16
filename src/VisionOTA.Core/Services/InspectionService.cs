@@ -58,6 +58,69 @@ namespace VisionOTA.Core.Services
             _statisticsService = statisticsService;
             _cameras = new Dictionary<int, ICamera>();
             _visionProcessors = new Dictionary<int, IVisionProcessor>();
+
+            // 订阅瓶身旋转命令
+            EventAggregator.Instance.Subscribe<BottleRotateCommand>(OnBottleRotateCommand);
+        }
+
+        private async void OnBottleRotateCommand(BottleRotateCommand cmd)
+        {
+            if (_plc == null || !_plc.IsConnected)
+            {
+                FileLogger.Instance.Warning("PLC未连接，无法控制瓶身旋转", "Inspection");
+                return;
+            }
+
+            try
+            {
+                var config = ConfigManager.Instance.Plc;
+                // 使用PLC设置中配置的瓶身旋转地址（OutputValue）
+                var addressConfig = config.OutputAddresses.OutputValue;
+                var address = addressConfig.Address;
+                var dataType = addressConfig.DataType;
+                int value = cmd.Rotate ? 1 : 0;
+
+                var success = await WriteByTypeAsync(address, dataType, value);
+                if (success)
+                {
+                    FileLogger.Instance.Info($"瓶身旋转控制: {(cmd.Rotate ? "开始旋转" : "停止旋转")}, 地址: {address}, 类型: {dataType}", "Inspection");
+                }
+                else
+                {
+                    FileLogger.Instance.Warning($"瓶身旋转控制失败: 写入地址 {address} 失败", "Inspection");
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"瓶身旋转控制异常: {ex.Message}", ex, "Inspection");
+            }
+        }
+
+        /// <summary>
+        /// 根据数据类型写入PLC
+        /// </summary>
+        private async Task<bool> WriteByTypeAsync(string address, string dataType, int value)
+        {
+            switch (dataType?.ToUpper())
+            {
+                case "BOOL":
+                    return await _plc.WriteBitAsync(address, value != 0);
+                case "INT":
+                    return await _plc.WriteWordAsync(address, (short)value);
+                case "UINT":
+                    return await _plc.WriteUIntAsync(address, (ushort)value);
+                case "DINT":
+                    return await _plc.WriteDWordAsync(address, value);
+                case "UDINT":
+                    return await _plc.WriteUDIntAsync(address, (uint)value);
+                case "REAL":
+                    return await _plc.WriteFloatAsync(address, value);
+                case "LREAL":
+                    return await _plc.WriteLRealAsync(address, value);
+                default:
+                    // 默认使用REAL
+                    return await _plc.WriteFloatAsync(address, value);
+            }
         }
 
         public async Task<bool> InitializeAsync()

@@ -53,33 +53,33 @@ namespace VisionOTA.Infrastructure.Config
     public class PlcOutputAddresses
     {
         /// <summary>
-        /// 输出值地址
+        /// 瓶身旋转地址 (1=旋转, 0=不旋转)
         /// </summary>
         public PlcAddressItem OutputValue { get; set; } = new PlcAddressItem
         {
             Address = "D4400",
             DataType = "REAL",
-            Description = "输出地址"
+            Description = "瓶身旋转地址 (1=旋转, 0=不旋转)"
         };
 
         /// <summary>
-        /// 旋转角度地址
+        /// 定位角度地址
         /// </summary>
         public PlcAddressItem RotationAngle { get; set; } = new PlcAddressItem
         {
             Address = "D4402",
             DataType = "REAL",
-            Description = "旋转地址"
+            Description = "定位角度地址"
         };
 
         /// <summary>
-        /// 结果地址 (1=OK, 0=NG)
+        /// 产品合格地址 (2=合格, 3=不合格)
         /// </summary>
         public PlcAddressItem Result { get; set; } = new PlcAddressItem
         {
             Address = "D4404",
             DataType = "REAL",
-            Description = "良品地址"
+            Description = "产品合格地址 (2=合格, 3=不合格)"
         };
     }
 

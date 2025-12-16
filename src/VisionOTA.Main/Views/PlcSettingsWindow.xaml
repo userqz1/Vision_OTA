@@ -162,8 +162,8 @@
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="当前值" Style="{StaticResource LabelStyle}" FontWeight="Bold" HorizontalAlignment="Center"/>
                 <TextBlock Grid.Row="0" Grid.Column="5" Text="写入值" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
 
-                <!-- 输出值 -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="输出值" Style="{StaticResource LabelStyle}"/>
+                <!-- 瓶身旋转 -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="瓶身旋转" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputValueAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding OutputValueType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="1" Grid.Column="3" Background="#F0F0F0" Margin="2">
@@ -173,8 +173,8 @@
                 <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding OutputValueWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
                 <Button Grid.Row="1" Grid.Column="6" Content="写" Command="{Binding WriteOutputValueCommand}" Style="{StaticResource ButtonStyle}"/>
 
-                <!-- 旋转角度 -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="旋转角度" Style="{StaticResource LabelStyle}"/>
+                <!-- 定位角度 -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="定位角度" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding RotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="2" Grid.Column="3" Background="#F0F0F0" Margin="2">
@@ -184,8 +184,8 @@
                 <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding RotationAngleWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
                 <Button Grid.Row="2" Grid.Column="6" Content="写" Command="{Binding WriteRotationAngleCommand}" Style="{StaticResource ButtonStyle}"/>
 
-                <!-- 结果 -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="结果" Style="{StaticResource LabelStyle}"/>
+                <!-- 产品合格 -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="产品合格" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResultAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="3" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding ResultType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="3" Grid.Column="3" Background="#F0F0F0" Margin="2">

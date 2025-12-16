@@ -5,7 +5,7 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using VisionOTA.Hardware.Camera.Dushen;
+using DVPCameraType;
 using VisionOTA.Infrastructure.Logging;
 
 namespace VisionOTA.Hardware.Camera
@@ -19,15 +19,13 @@ namespace VisionOTA.Hardware.Camera
         private bool _isConnected;
         private bool _isGrabbing;
         private int _exposure = 2000;
-        private double _gain = 1.0;
+        private float _gain = 1.0f;
         private int _lineRate = 10000;
         private int _lineCount = 4096;
         private TriggerSource _currentTriggerSource = TriggerSource.Continuous;
         private TriggerEdge _triggerEdge = TriggerEdge.RisingEdge;
         private CancellationTokenSource _grabCts;
-        private dvpStreamCallback _streamCallback;
-        private dvpEventCallback _eventCallback;
-        private GCHandle _callbackHandle;
+        private DVPCamera.dvpStreamCallback _streamCallback;
 
         public string FriendlyName { get; private set; }
         public string UserId { get; private set; }
@@ -58,7 +56,7 @@ namespace VisionOTA.Hardware.Camera
             try
             {
                 uint count = 0;
-                var status = DvpCamera.dvpRefresh(ref count);
+                var status = DVPCamera.dvpRefresh(ref count);
                 if (status != dvpStatus.DVP_STATUS_OK || count == 0)
                 {
                     return cameras.ToArray();
@@ -67,13 +65,13 @@ namespace VisionOTA.Hardware.Camera
                 for (uint i = 0; i < count; i++)
                 {
                     dvpCameraInfo info = new dvpCameraInfo();
-                    status = DvpCamera.dvpEnum(i, ref info);
+                    status = DVPCamera.dvpEnum(i, ref info);
                     if (status == dvpStatus.DVP_STATUS_OK)
                     {
                         cameras.Add(new CameraInfo
                         {
                             FriendlyName = info.FriendlyName,
-                            UserId = info.UserId,
+                            UserId = info.UserID,
                             SerialNumber = info.SerialNumber,
                             Index = (int)i
                         });
@@ -102,7 +100,7 @@ namespace VisionOTA.Hardware.Camera
                 }
 
                 uint count = 0;
-                var status = DvpCamera.dvpRefresh(ref count);
+                var status = DVPCamera.dvpRefresh(ref count);
                 if (status != dvpStatus.DVP_STATUS_OK || count == 0)
                 {
                     FileLogger.Instance.Warning($"度申线扫相机连接失败: 未找到任何设备", "DushenLineCamera");
@@ -110,7 +108,7 @@ namespace VisionOTA.Hardware.Camera
                 }
 
                 uint handle = 0;
-                status = DvpCamera.dvpOpenByUserId(userId, dvpOpenMode.OPEN_NORMAL, ref handle);
+                status = DVPCamera.dvpOpenByUserId(userId, dvpOpenMode.OPEN_NORMAL, ref handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
                     FileLogger.Instance.Error($"度申线扫相机通过UserId '{userId}' 打开失败: {status}", null, "DushenLineCamera");
@@ -154,7 +152,7 @@ namespace VisionOTA.Hardware.Camera
             try
             {
                 uint count = 0;
-                var status = DvpCamera.dvpRefresh(ref count);
+                var status = DVPCamera.dvpRefresh(ref count);
                 if (status != dvpStatus.DVP_STATUS_OK || count == 0)
                 {
                     FileLogger.Instance.Warning($"度申线扫相机连接失败: 未找到任何设备", "DushenLineCamera");
@@ -168,7 +166,7 @@ namespace VisionOTA.Hardware.Camera
                 }
 
                 dvpCameraInfo info = new dvpCameraInfo();
-                status = DvpCamera.dvpEnum((uint)index, ref info);
+                status = DVPCamera.dvpEnum((uint)index, ref info);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
                     FileLogger.Instance.Error($"度申线扫相机枚举失败: {status}", null, "DushenLineCamera");
@@ -176,7 +174,7 @@ namespace VisionOTA.Hardware.Camera
                 }
 
                 uint handle = 0;
-                status = DvpCamera.dvpOpen((uint)index, dvpOpenMode.OPEN_NORMAL, ref handle);
+                status = DVPCamera.dvpOpen((uint)index, dvpOpenMode.OPEN_NORMAL, ref handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
                     FileLogger.Instance.Error($"度申线扫相机打开失败: {status}", null, "DushenLineCamera");
@@ -185,7 +183,7 @@ namespace VisionOTA.Hardware.Camera
 
                 _handle = handle;
                 FriendlyName = info.FriendlyName;
-                UserId = info.UserId;
+                UserId = info.UserID;
                 SerialNumber = info.SerialNumber;
 
                 InitializeCamera();
@@ -218,13 +216,13 @@ namespace VisionOTA.Hardware.Camera
             try
             {
                 uint count = 0;
-                DvpCamera.dvpRefresh(ref count);
+                DVPCamera.dvpRefresh(ref count);
                 for (uint i = 0; i < count; i++)
                 {
                     dvpCameraInfo info = new dvpCameraInfo();
-                    if (DvpCamera.dvpEnum(i, ref info) == dvpStatus.DVP_STATUS_OK)
+                    if (DVPCamera.dvpEnum(i, ref info) == dvpStatus.DVP_STATUS_OK)
                     {
-                        if (info.UserId == UserId)
+                        if (info.UserID == UserId)
                         {
                             FriendlyName = info.FriendlyName;
                             SerialNumber = info.SerialNumber;
@@ -240,28 +238,19 @@ namespace VisionOTA.Hardware.Camera
         {
             // 注册流回调
             _streamCallback = OnStreamCallback;
-            _callbackHandle = GCHandle.Alloc(this);
-            var status = DvpCamera.dvpRegisterStreamCallback(_handle, _streamCallback, dvpStreamEvent.CYCLOBUFFER_ISP, GCHandle.ToIntPtr(_callbackHandle));
+            var status = DVPCamera.dvpRegisterStreamCallback(_handle, _streamCallback, dvpStreamEvent.STREAM_EVENT_FRAME_THREAD, IntPtr.Zero);
             if (status != dvpStatus.DVP_STATUS_OK)
             {
                 FileLogger.Instance.Warning($"度申线扫相机注册流回调失败: {status}", "DushenLineCamera");
             }
 
-            // 注册事件回调
-            _eventCallback = OnEventCallback;
-            DvpCamera.dvpRegisterEventCallback(_handle, _eventCallback, dvpEvent.EVENT_DISCONNECTED, GCHandle.ToIntPtr(_callbackHandle));
-
-            // 关闭自动曝光
-            DvpCamera.dvpSetAeOperation(_handle, dvpAeOperation.AE_OP_OFF);
-            DvpCamera.dvpSetAntiFlick(_handle, dvpAntiFlick.ANTIFLICK_DISABLE);
-
             // 设置初始参数
-            DvpCamera.dvpSetExposure(_handle, _exposure);
-            DvpCamera.dvpSetAnalogGain(_handle, _gain);
+            DVPCamera.dvpSetFloatValue(_handle, "ExposureTime", _exposure);
+            DVPCamera.dvpSetFloatValue(_handle, "Gain", _gain);
 
-            // 设置线扫参数
-            DvpCamera.dvpSetLineRate(_handle, _lineRate);
-            DvpCamera.dvpSetHeight(_handle, _lineCount);
+            // 线扫特有参数
+            DVPCamera.dvpSetIntValue(_handle, "LineRate", _lineRate);
+            DVPCamera.dvpSetIntValue(_handle, "Height", _lineCount);
         }
 
         public void Disconnect()
@@ -275,13 +264,8 @@ namespace VisionOTA.Hardware.Camera
 
                 if (_handle != 0)
                 {
-                    DvpCamera.dvpClose(_handle);
+                    DVPCamera.dvpClose(_handle);
                     _handle = 0;
-                }
-
-                if (_callbackHandle.IsAllocated)
-                {
-                    _callbackHandle.Free();
                 }
 
                 _isConnected = false;
@@ -312,7 +296,7 @@ namespace VisionOTA.Hardware.Camera
                 ConfigureTrigger(_currentTriggerSource);
 
                 // 启动视频流
-                var status = DvpCamera.dvpStart(_handle);
+                var status = DVPCamera.dvpStart(_handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
                     FileLogger.Instance.Error($"度申线扫相机启动视频流失败: {status}", null, "DushenLineCamera");
@@ -336,21 +320,33 @@ namespace VisionOTA.Hardware.Camera
             switch (source)
             {
                 case TriggerSource.Continuous:
-                    DvpCamera.dvpSetTriggerState(_handle, false);
+                    // 关闭触发模式，使用连续采集
+                    DVPCamera.dvpSetTriggerState(_handle, false);
                     break;
 
                 case TriggerSource.Software:
-                    DvpCamera.dvpSetTriggerState(_handle, true);
-                    DvpCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE);
+                    // 开启触发模式，软件触发
+                    DVPCamera.dvpSetTriggerState(_handle, true);
+                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE);
                     break;
 
                 case TriggerSource.Line0:
                 case TriggerSource.Line1:
+                    DVPCamera.dvpSetTriggerState(_handle, true);
+                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE1);
+                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    break;
+
                 case TriggerSource.Line2:
+                    DVPCamera.dvpSetTriggerState(_handle, true);
+                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE2);
+                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    break;
+
                 case TriggerSource.Line3:
-                    DvpCamera.dvpSetTriggerState(_handle, true);
-                    DvpCamera.dvpSetTriggerSource(_handle, ConvertTriggerSource(source));
-                    DvpCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    DVPCamera.dvpSetTriggerState(_handle, true);
+                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE3);
+                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
                     break;
             }
         }
@@ -366,7 +362,7 @@ namespace VisionOTA.Hardware.Camera
 
                 if (_handle != 0)
                 {
-                    DvpCamera.dvpStop(_handle);
+                    DVPCamera.dvpStop(_handle);
                 }
 
                 _isGrabbing = false;
@@ -391,11 +387,17 @@ namespace VisionOTA.Hardware.Camera
 
             try
             {
-                var status = DvpCamera.dvpTriggerFire(_handle);
+                // 使用官方API发送软触发命令
+                var status = DVPCamera.dvpSetCommandValue(_handle, "TriggerSoftware");
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
-                    FileLogger.Instance.Warning($"度申线扫相机软触发失败: {status}", "DushenLineCamera");
-                    return false;
+                    // 备用方法
+                    status = DVPCamera.dvpTriggerFire(_handle);
+                    if (status != dvpStatus.DVP_STATUS_OK)
+                    {
+                        FileLogger.Instance.Warning($"度申线扫相机软触发失败: {status}", "DushenLineCamera");
+                        return false;
+                    }
                 }
                 return true;
             }
@@ -413,7 +415,7 @@ namespace VisionOTA.Hardware.Camera
                 _exposure = exposureUs;
                 if (_isConnected && _handle != 0)
                 {
-                    var status = DvpCamera.dvpSetExposure(_handle, exposureUs);
+                    var status = DVPCamera.dvpSetFloatValue(_handle, "ExposureTime", exposureUs);
                     if (status != dvpStatus.DVP_STATUS_OK)
                     {
                         FileLogger.Instance.Warning($"度申线扫相机设置曝光失败: {status}", "DushenLineCamera");
@@ -433,8 +435,9 @@ namespace VisionOTA.Hardware.Camera
         {
             if (_isConnected && _handle != 0)
             {
-                double exposure = 0;
-                var status = DvpCamera.dvpGetExposure(_handle, ref exposure);
+                float exposure = 0;
+                dvpFloatDescr descr = new dvpFloatDescr();
+                var status = DVPCamera.dvpGetFloatValue(_handle, "ExposureTime", ref exposure, ref descr);
                 if (status == dvpStatus.DVP_STATUS_OK)
                 {
                     _exposure = (int)exposure;
@@ -447,10 +450,10 @@ namespace VisionOTA.Hardware.Camera
         {
             try
             {
-                _gain = gain;
+                _gain = (float)gain;
                 if (_isConnected && _handle != 0)
                 {
-                    var status = DvpCamera.dvpSetAnalogGain(_handle, gain);
+                    var status = DVPCamera.dvpSetFloatValue(_handle, "Gain", _gain);
                     if (status != dvpStatus.DVP_STATUS_OK)
                     {
                         FileLogger.Instance.Warning($"度申线扫相机设置增益失败: {status}", "DushenLineCamera");
@@ -470,8 +473,9 @@ namespace VisionOTA.Hardware.Camera
         {
             if (_isConnected && _handle != 0)
             {
-                double gain = 0;
-                var status = DvpCamera.dvpGetAnalogGain(_handle, ref gain);
+                float gain = 0;
+                dvpFloatDescr descr = new dvpFloatDescr();
+                var status = DVPCamera.dvpGetFloatValue(_handle, "Gain", ref gain, ref descr);
                 if (status == dvpStatus.DVP_STATUS_OK)
                 {
                     _gain = gain;
@@ -510,7 +514,7 @@ namespace VisionOTA.Hardware.Camera
                 _triggerEdge = edge;
                 if (_isConnected && _handle != 0 && IsHardwareTrigger(_currentTriggerSource))
                 {
-                    var status = DvpCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(edge));
+                    var status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(edge));
                     if (status != dvpStatus.DVP_STATUS_OK)
                     {
                         FileLogger.Instance.Warning($"度申线扫相机设置触发边沿失败: {status}", "DushenLineCamera");
@@ -536,7 +540,7 @@ namespace VisionOTA.Hardware.Camera
                 _lineRate = lineRate;
                 if (_isConnected && _handle != 0)
                 {
-                    var status = DvpCamera.dvpSetLineRate(_handle, lineRate);
+                    var status = DVPCamera.dvpSetIntValue(_handle, "LineRate", lineRate);
                     if (status != dvpStatus.DVP_STATUS_OK)
                     {
                         FileLogger.Instance.Warning($"度申线扫相机设置行频失败: {status}", "DushenLineCamera");
@@ -556,11 +560,12 @@ namespace VisionOTA.Hardware.Camera
         {
             if (_isConnected && _handle != 0)
             {
-                double lineRate = 0;
-                var status = DvpCamera.dvpGetLineRate(_handle, ref lineRate);
+                int lineRate = 0;
+                dvpIntDescr descr = new dvpIntDescr();
+                var status = DVPCamera.dvpGetIntValue(_handle, "LineRate", ref lineRate, ref descr);
                 if (status == dvpStatus.DVP_STATUS_OK)
                 {
-                    _lineRate = (int)lineRate;
+                    _lineRate = lineRate;
                 }
             }
             return _lineRate;
@@ -573,7 +578,7 @@ namespace VisionOTA.Hardware.Camera
                 _lineCount = lineCount;
                 if (_isConnected && _handle != 0)
                 {
-                    var status = DvpCamera.dvpSetHeight(_handle, lineCount);
+                    var status = DVPCamera.dvpSetIntValue(_handle, "Height", lineCount);
                     if (status != dvpStatus.DVP_STATUS_OK)
                     {
                         FileLogger.Instance.Warning($"度申线扫相机设置采集行数失败: {status}", "DushenLineCamera");
@@ -594,7 +599,8 @@ namespace VisionOTA.Hardware.Camera
             if (_isConnected && _handle != 0)
             {
                 int height = 0;
-                var status = DvpCamera.dvpGetHeight(_handle, ref height);
+                dvpIntDescr descr = new dvpIntDescr();
+                var status = DVPCamera.dvpGetIntValue(_handle, "Height", ref height, ref descr);
                 if (status == dvpStatus.DVP_STATUS_OK)
                 {
                     _lineCount = height;
@@ -609,20 +615,42 @@ namespace VisionOTA.Hardware.Camera
                    source == TriggerSource.Line2 || source == TriggerSource.Line3;
         }
 
-        private void OnStreamCallback(uint handle, dvpStreamEvent eventType, IntPtr pContext, ref dvpFrame pFrame, IntPtr pBuffer)
+        private int OnStreamCallback(uint handle, dvpStreamEvent eventType, IntPtr pContext, ref dvpFrame refFrame, IntPtr pBuffer)
         {
             try
             {
-                if (pBuffer == IntPtr.Zero || pFrame.width <= 0 || pFrame.height <= 0)
-                    return;
+                if (pBuffer == IntPtr.Zero || refFrame.iWidth <= 0 || refFrame.iHeight <= 0)
+                    return 0;
 
-                var pixelFormat = pFrame.bits == 8 ? PixelFormat.Format8bppIndexed : PixelFormat.Format24bppRgb;
-                var stride = pFrame.width * (pFrame.bits / 8);
-                if (pFrame.bits == 24)
-                    stride = pFrame.width * 3;
+                int width = refFrame.iWidth;
+                int height = refFrame.iHeight;
 
-                var bitmap = new Bitmap(pFrame.width, pFrame.height, stride, pixelFormat, pBuffer);
+                // 根据图像格式确定像素格式和字节数
+                PixelFormat pixelFormat;
+                int bytesPerPixel;
 
+                switch (refFrame.format)
+                {
+                    case dvpImageFormat.FORMAT_MONO:
+                        pixelFormat = PixelFormat.Format8bppIndexed;
+                        bytesPerPixel = 1;
+                        break;
+                    case dvpImageFormat.FORMAT_RGB24:
+                    case dvpImageFormat.FORMAT_BGR24:
+                        pixelFormat = PixelFormat.Format24bppRgb;
+                        bytesPerPixel = 3;
+                        break;
+                    default:
+                        // 默认按RGB24处理
+                        pixelFormat = PixelFormat.Format24bppRgb;
+                        bytesPerPixel = 3;
+                        break;
+                }
+
+                // 创建新的Bitmap并复制数据（stride需要4字节对齐）
+                var bitmap = new Bitmap(width, height, pixelFormat);
+
+                // 设置灰度调色板
                 if (pixelFormat == PixelFormat.Format8bppIndexed)
                 {
                     var palette = bitmap.Palette;
@@ -633,14 +661,30 @@ namespace VisionOTA.Hardware.Camera
                     bitmap.Palette = palette;
                 }
 
-                var clone = (Bitmap)bitmap.Clone();
-                bitmap.Dispose();
+                // 锁定位图内存并复制数据
+                var bitmapData = bitmap.LockBits(
+                    new System.Drawing.Rectangle(0, 0, width, height),
+                    ImageLockMode.WriteOnly,
+                    pixelFormat);
+
+                int srcStride = width * bytesPerPixel;
+                int dstStride = bitmapData.Stride;
+
+                // 逐行复制数据
+                for (int y = 0; y < height; y++)
+                {
+                    IntPtr srcRow = new IntPtr(pBuffer.ToInt64() + y * srcStride);
+                    IntPtr dstRow = new IntPtr(bitmapData.Scan0.ToInt64() + y * dstStride);
+                    CopyMemory(dstRow, srcRow, srcStride);
+                }
+
+                bitmap.UnlockBits(bitmapData);
 
                 ImageReceived?.Invoke(this, new ImageReceivedEventArgs
                 {
-                    Image = clone,
-                    Width = pFrame.width,
-                    Height = pFrame.height,
+                    Image = bitmap,
+                    Width = width,
+                    Height = height,
                     Timestamp = DateTime.Now
                 });
             }
@@ -648,55 +692,25 @@ namespace VisionOTA.Hardware.Camera
             {
                 FileLogger.Instance.Error($"度申线扫相机图像回调处理失败: {ex.Message}", ex, "DushenLineCamera");
             }
+
+            return 0;
         }
 
-        private void OnEventCallback(uint handle, dvpEvent eventType, IntPtr pContext, int param)
-        {
-            if (eventType == dvpEvent.EVENT_DISCONNECTED)
-            {
-                FileLogger.Instance.Warning($"度申线扫相机断开连接事件", "DushenLineCamera");
-                _isConnected = false;
-                _isGrabbing = false;
-
-                ConnectionChanged?.Invoke(this, new ConnectionChangedEventArgs
-                {
-                    IsConnected = false,
-                    Message = "相机意外断开"
-                });
-            }
-        }
-
-        private dvpTriggerSource ConvertTriggerSource(TriggerSource source)
-        {
-            switch (source)
-            {
-                case TriggerSource.Software:
-                    return dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE;
-                case TriggerSource.Line0:
-                    return dvpTriggerSource.TRIGGER_SOURCE_LINE0;
-                case TriggerSource.Line1:
-                    return dvpTriggerSource.TRIGGER_SOURCE_LINE1;
-                case TriggerSource.Line2:
-                    return dvpTriggerSource.TRIGGER_SOURCE_LINE2;
-                case TriggerSource.Line3:
-                    return dvpTriggerSource.TRIGGER_SOURCE_LINE3;
-                default:
-                    return dvpTriggerSource.TRIGGER_SOURCE_LINE0;
-            }
-        }
+        [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
+        private static extern void CopyMemory(IntPtr dest, IntPtr src, int count);
 
         private dvpTriggerInputType ConvertTriggerEdge(TriggerEdge edge)
         {
             switch (edge)
             {
                 case TriggerEdge.RisingEdge:
-                    return dvpTriggerInputType.TRIGGER_INPUT_RISING_EDGE;
+                    return dvpTriggerInputType.TRIGGER_POS_EDGE;
                 case TriggerEdge.FallingEdge:
-                    return dvpTriggerInputType.TRIGGER_INPUT_FALLING_EDGE;
+                    return dvpTriggerInputType.TRIGGER_NEG_EDGE;
                 case TriggerEdge.DoubleEdge:
-                    return dvpTriggerInputType.TRIGGER_INPUT_DOUBLE_EDGE;
+                    return dvpTriggerInputType.TRIGGER_POS_EDGE; // 没有双边沿，使用上升沿
                 default:
-                    return dvpTriggerInputType.TRIGGER_INPUT_RISING_EDGE;
+                    return dvpTriggerInputType.TRIGGER_POS_EDGE;
             }
         }
 

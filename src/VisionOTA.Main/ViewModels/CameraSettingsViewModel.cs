@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using VisionOTA.Common.Events;
 using VisionOTA.Common.Mvvm;
 using VisionOTA.Hardware.Camera;
 using VisionOTA.Infrastructure.Config;
@@ -24,10 +25,12 @@ namespace VisionOTA.Main.ViewModels
         private string _station1UserId;
         private string _station1FriendlyName = "--";
         private string _station1SerialDisplay = "--";
+        private string _station1IPAddress = "--";
         private string _station1StatusText = "未连接";
         private int _station1Exposure;
         private double _station1Gain;
-        private string _station1TriggerSource;
+        private string _station1TriggerMode = "连续采集";
+        private string _station1HardwareTriggerSource = "Line1";
         private string _station1TriggerEdge;
         private BitmapSource _station1Image;
         private SolidColorBrush _station1StatusColor = new SolidColorBrush(Colors.Gray);
@@ -37,25 +40,41 @@ namespace VisionOTA.Main.ViewModels
         private string _station2UserId;
         private string _station2FriendlyName = "--";
         private string _station2SerialDisplay = "--";
+        private string _station2IPAddress = "--";
         private string _station2StatusText = "未连接";
         private int _station2Exposure;
         private double _station2Gain;
         private int _station2LineRate;
         private int _station2LineCount;
-        private string _station2TriggerSource;
+        private string _station2TriggerMode = "连续采集";
+        private string _station2HardwareTriggerSource = "Line1";
         private string _station2TriggerEdge;
         private BitmapSource _station2Image;
         private SolidColorBrush _station2StatusColor = new SolidColorBrush(Colors.Gray);
         private CameraInfo _station2SelectedCamera;
 
-        public List<string> TriggerSources { get; } = new List<string>
+        // 瓶身旋转状态
+        private bool _isBottleRotating;
+
+        /// <summary>
+        /// 触发模式：连续采集或触发采集
+        /// </summary>
+        public List<string> TriggerModes { get; } = new List<string>
         {
-            "Continuous", "Software", "Line0", "Line1", "Line2", "Line3"
+            "连续采集", "软件触发", "硬件触发"
+        };
+
+        /// <summary>
+        /// 硬件触发源（仅硬件触发时使用）
+        /// </summary>
+        public List<string> HardwareTriggerSources { get; } = new List<string>
+        {
+            "Line1", "Line2", "Line3"
         };
 
         public List<string> TriggerEdges { get; } = new List<string>
         {
-            "上升沿", "下降沿", "双边沿"
+            "上升沿", "下降沿"
         };
 
         public ObservableCollection<CameraInfo> Station1Cameras { get; } = new ObservableCollection<CameraInfo>();
@@ -101,10 +120,30 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _station1Gain, value);
         }
 
-        public string Station1TriggerSource
+        public string Station1IPAddress
         {
-            get => _station1TriggerSource;
-            set => SetProperty(ref _station1TriggerSource, value);
+            get => _station1IPAddress;
+            set => SetProperty(ref _station1IPAddress, value);
+        }
+
+        public string Station1TriggerMode
+        {
+            get => _station1TriggerMode;
+            set
+            {
+                if (SetProperty(ref _station1TriggerMode, value))
+                {
+                    OnPropertyChanged(nameof(Station1IsHardwareTrigger));
+                }
+            }
+        }
+
+        public bool Station1IsHardwareTrigger => _station1TriggerMode == "硬件触发";
+
+        public string Station1HardwareTriggerSource
+        {
+            get => _station1HardwareTriggerSource;
+            set => SetProperty(ref _station1HardwareTriggerSource, value);
         }
 
         public string Station1TriggerEdge
@@ -190,10 +229,30 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _station2LineCount, value);
         }
 
-        public string Station2TriggerSource
+        public string Station2IPAddress
         {
-            get => _station2TriggerSource;
-            set => SetProperty(ref _station2TriggerSource, value);
+            get => _station2IPAddress;
+            set => SetProperty(ref _station2IPAddress, value);
+        }
+
+        public string Station2TriggerMode
+        {
+            get => _station2TriggerMode;
+            set
+            {
+                if (SetProperty(ref _station2TriggerMode, value))
+                {
+                    OnPropertyChanged(nameof(Station2IsHardwareTrigger));
+                }
+            }
+        }
+
+        public bool Station2IsHardwareTrigger => _station2TriggerMode == "硬件触发";
+
+        public string Station2HardwareTriggerSource
+        {
+            get => _station2HardwareTriggerSource;
+            set => SetProperty(ref _station2HardwareTriggerSource, value);
         }
 
         public string Station2TriggerEdge
@@ -227,6 +286,20 @@ namespace VisionOTA.Main.ViewModels
             }
         }
 
+        /// <summary>
+        /// 瓶身是否正在旋转
+        /// </summary>
+        public bool IsBottleRotating
+        {
+            get => _isBottleRotating;
+            set => SetProperty(ref _isBottleRotating, value);
+        }
+
+        /// <summary>
+        /// 瓶身旋转按钮文本
+        /// </summary>
+        public string BottleRotationButtonText => _isBottleRotating ? "停止旋转" : "旋转瓶身";
+
         #endregion
 
         #region Commands
@@ -249,6 +322,7 @@ namespace VisionOTA.Main.ViewModels
 
         public ICommand SaveCommand { get; }
         public ICommand CloseCommand { get; }
+        public ICommand ToggleBottleRotationCommand { get; }
 
         #endregion
 
@@ -263,7 +337,7 @@ namespace VisionOTA.Main.ViewModels
             StartGrabStation1Command = new RelayCommand(_ => StartGrabStation1(), _ => _camera1 != null && _camera1.IsConnected && !_camera1.IsGrabbing);
             StopGrabStation1Command = new RelayCommand(_ => StopGrabStation1(), _ => _camera1 != null && _camera1.IsGrabbing);
             ApplyStation1Command = new RelayCommand(_ => ApplyStation1Params(), _ => _camera1 != null && _camera1.IsConnected);
-            SoftTriggerStation1Command = new RelayCommand(_ => _camera1?.SoftTrigger(), _ => _camera1 != null && _camera1.IsGrabbing && Station1TriggerSource == "Software");
+            SoftTriggerStation1Command = new RelayCommand(_ => _camera1?.SoftTrigger(), _ => _camera1 != null && _camera1.IsGrabbing && Station1TriggerMode == "软件触发");
 
             // Station2 commands
             SearchStation2Command = new RelayCommand(_ => SearchStation2Cameras());
@@ -272,12 +346,20 @@ namespace VisionOTA.Main.ViewModels
             StartGrabStation2Command = new RelayCommand(_ => StartGrabStation2(), _ => _camera2 != null && _camera2.IsConnected && !_camera2.IsGrabbing);
             StopGrabStation2Command = new RelayCommand(_ => StopGrabStation2(), _ => _camera2 != null && _camera2.IsGrabbing);
             ApplyStation2Command = new RelayCommand(_ => ApplyStation2Params(), _ => _camera2 != null && _camera2.IsConnected);
-            SoftTriggerStation2Command = new RelayCommand(_ => _camera2?.SoftTrigger(), _ => _camera2 != null && _camera2.IsGrabbing && Station2TriggerSource == "Software");
+            SoftTriggerStation2Command = new RelayCommand(_ => _camera2?.SoftTrigger(), _ => _camera2 != null && _camera2.IsGrabbing && Station2TriggerMode == "软件触发");
 
             SaveCommand = new RelayCommand(_ => Save());
             CloseCommand = new RelayCommand(_ => Close());
+            ToggleBottleRotationCommand = new RelayCommand(_ => ToggleBottleRotation());
 
             LoadConfig();
+
+            // 窗口加载后自动搜索相机
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SearchStation1Cameras();
+                SearchStation2Cameras();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private void LoadConfig()
@@ -288,7 +370,10 @@ namespace VisionOTA.Main.ViewModels
             Station1UserId = config.Station1.UserId ?? "";
             Station1Exposure = config.Station1.Exposure;
             Station1Gain = config.Station1.Gain;
-            Station1TriggerSource = config.Station1.TriggerSource ?? "Continuous";
+            LoadTriggerMode(config.Station1.TriggerSource, out _station1TriggerMode, out _station1HardwareTriggerSource);
+            OnPropertyChanged(nameof(Station1TriggerMode));
+            OnPropertyChanged(nameof(Station1HardwareTriggerSource));
+            OnPropertyChanged(nameof(Station1IsHardwareTrigger));
             Station1TriggerEdge = ConvertTriggerEdgeToDisplay(config.Station1.TriggerEdge);
 
             // 工位2
@@ -297,8 +382,45 @@ namespace VisionOTA.Main.ViewModels
             Station2Gain = config.Station2.Gain;
             Station2LineRate = config.Station2.LineRate;
             Station2LineCount = config.Station2.LineCount;
-            Station2TriggerSource = config.Station2.TriggerSource ?? "Continuous";
+            LoadTriggerMode(config.Station2.TriggerSource, out _station2TriggerMode, out _station2HardwareTriggerSource);
+            OnPropertyChanged(nameof(Station2TriggerMode));
+            OnPropertyChanged(nameof(Station2HardwareTriggerSource));
+            OnPropertyChanged(nameof(Station2IsHardwareTrigger));
             Station2TriggerEdge = ConvertTriggerEdgeToDisplay(config.Station2.TriggerEdge);
+        }
+
+        private void LoadTriggerMode(string triggerSource, out string mode, out string hardwareSource)
+        {
+            switch (triggerSource)
+            {
+                case "Software":
+                    mode = "软件触发";
+                    hardwareSource = "Line1";
+                    break;
+                case "Line1":
+                case "Line2":
+                case "Line3":
+                    mode = "硬件触发";
+                    hardwareSource = triggerSource;
+                    break;
+                default:
+                    mode = "连续采集";
+                    hardwareSource = "Line1";
+                    break;
+            }
+        }
+
+        private string GetTriggerSourceFromMode(string mode, string hardwareSource)
+        {
+            switch (mode)
+            {
+                case "软件触发":
+                    return "Software";
+                case "硬件触发":
+                    return hardwareSource;
+                default:
+                    return "Continuous";
+            }
         }
 
         private string ConvertTriggerEdgeToDisplay(string edge)
@@ -447,13 +569,14 @@ namespace VisionOTA.Main.ViewModels
                 return;
 
             // 应用当前触发源设置
-            _camera1.SetTriggerSource(ParseTriggerSource(Station1TriggerSource));
+            var triggerSource = GetTriggerSourceFromMode(Station1TriggerMode, Station1HardwareTriggerSource);
+            _camera1.SetTriggerSource(ParseTriggerSource(triggerSource));
             _camera1.SetTriggerEdge(ParseTriggerEdge(Station1TriggerEdge));
 
             if (_camera1.StartGrab())
             {
                 Station1StatusText = "采集中";
-                FileLogger.Instance.Info($"工位1开始采集, 触发源: {Station1TriggerSource}", "CameraSettings");
+                FileLogger.Instance.Info($"工位1开始采集, 触发模式: {Station1TriggerMode}", "CameraSettings");
             }
             CommandManager.InvalidateRequerySuggested();
         }
@@ -475,9 +598,10 @@ namespace VisionOTA.Main.ViewModels
 
             _camera1.SetExposure(Station1Exposure);
             _camera1.SetGain(Station1Gain);
-            _camera1.SetTriggerSource(ParseTriggerSource(Station1TriggerSource));
+            var triggerSource = GetTriggerSourceFromMode(Station1TriggerMode, Station1HardwareTriggerSource);
+            _camera1.SetTriggerSource(ParseTriggerSource(triggerSource));
             _camera1.SetTriggerEdge(ParseTriggerEdge(Station1TriggerEdge));
-            FileLogger.Instance.Info($"工位1参数已应用: Exp={Station1Exposure}, Gain={Station1Gain}, TriggerSource={Station1TriggerSource}", "CameraSettings");
+            FileLogger.Instance.Info($"工位1参数已应用: Exp={Station1Exposure}, Gain={Station1Gain}, TriggerMode={Station1TriggerMode}", "CameraSettings");
         }
 
         private void OnStation1ImageReceived(object sender, ImageReceivedEventArgs e)
@@ -632,13 +756,14 @@ namespace VisionOTA.Main.ViewModels
             if (_camera2 == null || !_camera2.IsConnected)
                 return;
 
-            _camera2.SetTriggerSource(ParseTriggerSource(Station2TriggerSource));
+            var triggerSource = GetTriggerSourceFromMode(Station2TriggerMode, Station2HardwareTriggerSource);
+            _camera2.SetTriggerSource(ParseTriggerSource(triggerSource));
             _camera2.SetTriggerEdge(ParseTriggerEdge(Station2TriggerEdge));
 
             if (_camera2.StartGrab())
             {
                 Station2StatusText = "采集中";
-                FileLogger.Instance.Info($"工位2开始采集, 触发源: {Station2TriggerSource}", "CameraSettings");
+                FileLogger.Instance.Info($"工位2开始采集, 触发模式: {Station2TriggerMode}", "CameraSettings");
             }
             CommandManager.InvalidateRequerySuggested();
         }
@@ -660,12 +785,13 @@ namespace VisionOTA.Main.ViewModels
 
             _camera2.SetExposure(Station2Exposure);
             _camera2.SetGain(Station2Gain);
-            _camera2.SetTriggerSource(ParseTriggerSource(Station2TriggerSource));
+            var triggerSource = GetTriggerSourceFromMode(Station2TriggerMode, Station2HardwareTriggerSource);
+            _camera2.SetTriggerSource(ParseTriggerSource(triggerSource));
             _camera2.SetTriggerEdge(ParseTriggerEdge(Station2TriggerEdge));
             _camera2.SetLineRate(Station2LineRate);
             _camera2.SetLineCount(Station2LineCount);
 
-            FileLogger.Instance.Info($"工位2参数已应用: Exp={Station2Exposure}, Gain={Station2Gain}, TriggerSource={Station2TriggerSource}", "CameraSettings");
+            FileLogger.Instance.Info($"工位2参数已应用: Exp={Station2Exposure}, Gain={Station2Gain}, TriggerMode={Station2TriggerMode}", "CameraSettings");
         }
 
         private void OnStation2ImageReceived(object sender, ImageReceivedEventArgs e)
@@ -706,7 +832,7 @@ namespace VisionOTA.Main.ViewModels
                 config.Station1.UserId = Station1UserId;
                 config.Station1.Exposure = Station1Exposure;
                 config.Station1.Gain = Station1Gain;
-                config.Station1.TriggerSource = Station1TriggerSource;
+                config.Station1.TriggerSource = GetTriggerSourceFromMode(Station1TriggerMode, Station1HardwareTriggerSource);
                 config.Station1.TriggerEdge = ConvertTriggerEdgeToConfig(Station1TriggerEdge);
 
                 config.Station2.UserId = Station2UserId;
@@ -714,7 +840,7 @@ namespace VisionOTA.Main.ViewModels
                 config.Station2.Gain = Station2Gain;
                 config.Station2.LineRate = Station2LineRate;
                 config.Station2.LineCount = Station2LineCount;
-                config.Station2.TriggerSource = Station2TriggerSource;
+                config.Station2.TriggerSource = GetTriggerSourceFromMode(Station2TriggerMode, Station2HardwareTriggerSource);
                 config.Station2.TriggerEdge = ConvertTriggerEdgeToConfig(Station2TriggerEdge);
 
                 ConfigManager.Instance.SaveCameraConfig();
@@ -731,7 +857,26 @@ namespace VisionOTA.Main.ViewModels
 
         private void Close()
         {
+            // 关闭窗口前停止旋转
+            if (_isBottleRotating)
+            {
+                ToggleBottleRotation();
+            }
             RequestClose?.Invoke(this, true);
+        }
+
+        private void ToggleBottleRotation()
+        {
+            IsBottleRotating = !IsBottleRotating;
+            OnPropertyChanged(nameof(BottleRotationButtonText));
+
+            // 发送旋转命令到PLC
+            EventAggregator.Instance.Publish(new BottleRotateCommand
+            {
+                Rotate = IsBottleRotating
+            });
+
+            FileLogger.Instance.Info($"瓶身旋转: {(IsBottleRotating ? "开始" : "停止")}", "CameraSettings");
         }
 
         private TriggerSource ParseTriggerSource(string source)

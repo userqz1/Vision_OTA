@@ -34,6 +34,8 @@ namespace VisionOTA.Hardware.Plc
         private CancellationTokenSource _heartbeatCts;
 
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        private CancellationTokenSource _disposeCts;
+        private bool _isDisposed;
 
         // FINS节点地址
         private byte _pcNode = 0;
@@ -106,10 +108,14 @@ namespace VisionOTA.Hardware.Plc
 
         public async Task<bool> ConnectAsync()
         {
+            if (_isDisposed)
+                return false;
+
             try
             {
                 DebugLog($"正在连接 {_ipAddress}:{_port}...");
 
+                _disposeCts = new CancellationTokenSource();
                 _tcpClient = new TcpClient
                 {
                     ReceiveTimeout = _timeout,
@@ -117,12 +123,39 @@ namespace VisionOTA.Hardware.Plc
                 };
 
                 var connectTask = _tcpClient.ConnectAsync(_ipAddress, _port);
-                if (await Task.WhenAny(connectTask, Task.Delay(_timeout)) != connectTask)
+                var timeoutTask = Task.Delay(_timeout, _disposeCts.Token);
+
+                try
                 {
-                    throw new TimeoutException("TCP连接超时");
+                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+                    if (completedTask == timeoutTask)
+                    {
+                        // 超时或取消，关闭TcpClient以取消连接
+                        _tcpClient?.Close();
+                        _tcpClient = null;
+
+                        if (_disposeCts.Token.IsCancellationRequested)
+                            return false;
+
+                        throw new TimeoutException("TCP连接超时");
+                    }
+
+                    await connectTask;
+                }
+                catch (ObjectDisposedException)
+                {
+                    // TcpClient已被释放（程序退出时）
+                    return false;
+                }
+                catch (NullReferenceException)
+                {
+                    // TcpClient在连接过程中被释放
+                    return false;
                 }
 
-                await connectTask;
+                if (_isDisposed || _tcpClient == null)
+                    return false;
+
                 _stream = _tcpClient.GetStream();
 
                 DebugLog("TCP连接成功，开始FINS握手...");
@@ -147,8 +180,20 @@ namespace VisionOTA.Hardware.Plc
 
                 return true;
             }
+            catch (ObjectDisposedException)
+            {
+                // 程序退出时正常情况，不需要记录错误
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                // 操作被取消，正常情况
+                return false;
+            }
             catch (Exception ex)
             {
+                if (_isDisposed) return false;
+
                 DebugLog($"连接失败: {ex.Message}");
                 FileLogger.Instance.Error($"PLC连接失败: {ex.Message}", ex, "FINS");
                 _isConnected = false;
@@ -226,9 +271,15 @@ namespace VisionOTA.Hardware.Plc
         {
             try
             {
+                // 取消所有待处理的操作
+                _disposeCts?.Cancel();
                 _heartbeatCts?.Cancel();
-                _stream?.Close();
-                _tcpClient?.Close();
+
+                try { _stream?.Close(); } catch { }
+                try { _tcpClient?.Close(); } catch { }
+
+                _stream = null;
+                _tcpClient = null;
                 _isConnected = false;
 
                 DebugLog("已断开连接");
@@ -279,7 +330,7 @@ namespace VisionOTA.Hardware.Plc
 
         private void HandleDisconnection()
         {
-            if (!_isConnected) return;
+            if (!_isConnected || _isDisposed) return;
 
             _isConnected = false;
             ConnectionChanged?.Invoke(this, new PlcConnectionChangedEventArgs
@@ -288,17 +339,28 @@ namespace VisionOTA.Hardware.Plc
                 Message = "PLC连接已断开"
             });
 
+            if (_isDisposed) return;
+
             var config = ConfigManager.Instance.Plc;
             var reconnectInterval = config?.Connection?.ReconnectInterval ?? 5000;
 
             Task.Run(async () =>
             {
-                while (!_isConnected && !_heartbeatCts.Token.IsCancellationRequested)
+                while (!_isConnected && !_isDisposed &&
+                       _heartbeatCts != null && !_heartbeatCts.Token.IsCancellationRequested)
                 {
-                    await Task.Delay(reconnectInterval);
-                    DebugLog("尝试重连...");
-                    if (await ConnectAsync())
+                    try
+                    {
+                        await Task.Delay(reconnectInterval, _heartbeatCts.Token);
+                        if (_isDisposed) break;
+                        DebugLog("尝试重连...");
+                        if (await ConnectAsync())
+                            break;
+                    }
+                    catch (OperationCanceledException)
+                    {
                         break;
+                    }
                 }
             });
         }
@@ -944,9 +1006,14 @@ namespace VisionOTA.Hardware.Plc
 
         public void Dispose()
         {
+            if (_isDisposed) return;
+            _isDisposed = true;
+
             Disconnect();
-            _semaphore?.Dispose();
-            _heartbeatCts?.Dispose();
+
+            try { _semaphore?.Dispose(); } catch { }
+            try { _heartbeatCts?.Dispose(); } catch { }
+            try { _disposeCts?.Dispose(); } catch { }
         }
     }
 }

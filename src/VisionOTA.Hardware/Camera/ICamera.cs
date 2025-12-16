@@ -101,16 +101,32 @@ namespace VisionOTA.Hardware.Camera
         public string SerialNumber { get; set; }
 
         /// <summary>
+        /// IP地址（GigE相机）
+        /// </summary>
+        public string IPAddress { get; set; }
+
+        /// <summary>
         /// 枚举索引
         /// </summary>
         public int Index { get; set; }
 
         /// <summary>
-        /// 显示名称
+        /// 显示名称（用于下拉列表）
         /// </summary>
-        public string DisplayName => string.IsNullOrEmpty(UserId)
-            ? FriendlyName
-            : $"{UserId} ({FriendlyName})";
+        public string DisplayName
+        {
+            get
+            {
+                var parts = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrEmpty(UserId))
+                    parts.Add(UserId);
+                if (!string.IsNullOrEmpty(FriendlyName))
+                    parts.Add(FriendlyName);
+                if (!string.IsNullOrEmpty(IPAddress))
+                    parts.Add(IPAddress);
+                return parts.Count > 0 ? string.Join(" | ", parts) : $"Camera_{Index}";
+            }
+        }
     }
 
     /// <summary>

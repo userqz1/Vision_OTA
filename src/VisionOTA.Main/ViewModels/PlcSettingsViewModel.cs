@@ -454,13 +454,18 @@ namespace VisionOTA.Main.ViewModels
                 config.Connection.Port = Port;
                 config.Connection.Timeout = Timeout;
 
-                // 更新输出地址和类型
+                // 更新输出地址、类型和描述
                 config.OutputAddresses.OutputValue.Address = OutputValueAddress;
                 config.OutputAddresses.OutputValue.DataType = OutputValueType;
+                config.OutputAddresses.OutputValue.Description = "瓶身旋转地址 (1=旋转, 0=不旋转)";
+
                 config.OutputAddresses.RotationAngle.Address = RotationAngleAddress;
                 config.OutputAddresses.RotationAngle.DataType = RotationAngleType;
+                config.OutputAddresses.RotationAngle.Description = "定位角度地址";
+
                 config.OutputAddresses.Result.Address = ResultAddress;
                 config.OutputAddresses.Result.DataType = ResultType;
+                config.OutputAddresses.Result.Description = "产品合格地址 (2=合格, 3=不合格)";
 
                 // 保存到文件
                 ConfigManager.Instance.SavePlcConfig();
