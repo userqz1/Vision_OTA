@@ -438,7 +438,7 @@ namespace VisionOTA.Main.ViewModels
 
         private void OpenVisionSettings()
         {
-            var window = new Views.VisionSettingsWindow();
+            var window = new Views.VisionMasterSettingsWindow();
             window.Owner = Application.Current.MainWindow;
             window.ShowDialog();
         }

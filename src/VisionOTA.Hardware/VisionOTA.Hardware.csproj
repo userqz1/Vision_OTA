@@ -55,6 +55,13 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
+    <!-- VisionMaster SDK -->
+    <Reference Include="VM.Core">
+      <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\VM.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="VM.PlatformSDKCS">
+      <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\VM.PlatformSDKCS.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Camera\CameraFactory.cs" />
@@ -69,6 +76,7 @@
     <Compile Include="Vision\IVisionProcessor.cs" />
     <Compile Include="Vision\MockVisionProcessor.cs" />
     <Compile Include="Vision\VisionProProcessor.cs" />
+    <Compile Include="Vision\VisionMasterProcessor.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VisionOTA.Common\VisionOTA.Common.csproj">

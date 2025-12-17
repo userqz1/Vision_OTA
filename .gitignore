@@ -37,3 +37,4 @@ Thumbs.db
 # Config files with sensitive data (keep templates)
 config/*.json
 !config/*.template.json
+*.sol

@@ -1,0 +1,84 @@
+<Window x:Class="VisionOTA.Main.Views.VisionMasterSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vmRelease="clr-namespace:VMControls.WPF.Release;assembly=VMControls.WPF.Release"
+        Title="VisionMaster 算法设置"
+        Width="1400" Height="900"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F3F0"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/IndustrialTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,0,10" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 方案信息 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="方案:" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtSolutionPath" Text="未加载" Foreground="#666666" VerticalAlignment="Center" Margin="5,0,20,0"/>
+                    <Button x:Name="btnLoadSolution" Content="加载方案" Click="BtnLoadSolution_Click"
+                            Style="{StaticResource ButtonStyle}" Width="90" Height="28"/>
+                </StackPanel>
+
+                <!-- 状态指示 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Ellipse x:Name="statusIndicator" Width="12" Height="12" Fill="#BDBDBD" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtStatus" Text="未连接" Foreground="#666666" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </StackPanel>
+
+                <!-- 操作按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="btnExecuteOnce" Content="执行一次" Click="BtnExecuteOnce_Click"
+                            Style="{StaticResource SuccessButtonStyle}" Width="90" Height="28" Margin="0,0,10,0"/>
+                    <Button x:Name="btnSave" Content="保存方案" Click="BtnSave_Click"
+                            Style="{StaticResource ButtonStyle}" Width="90" Height="28"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主视图 - 显示整个流程图 -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#CCCCCC" BorderThickness="1">
+            <vmRelease:VmMainViewConfigControl x:Name="vmMainViewControl" Margin="2"/>
+        </Border>
+
+        <!-- 底部按钮 -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,10,0,0" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 消息显示 -->
+                <TextBlock x:Name="txtMessage" Grid.Column="0" Text="" Foreground="#666666" VerticalAlignment="Center"/>
+
+                <!-- 关闭按钮 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="关闭" Click="BtnClose_Click"
+                            Style="{StaticResource SecondaryButtonStyle}" Width="100" Height="32"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
