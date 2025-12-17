@@ -8,99 +8,11 @@
         Background="#F5F3F0">
 
     <Window.Resources>
-        <Style x:Key="LabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#333333"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
-        <Style x:Key="InputStyle" TargetType="TextBox">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Padding" Value="6,0"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-
-        <Style x:Key="ValueStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#333333"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-        </Style>
-
-        <Style x:Key="ButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="MinWidth" Value="50"/>
-            <Setter Property="Background" Value="#333333"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="2,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="2">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#555555"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AAAAAA"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="SuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
-            <Setter Property="Background" Value="#2E7D32"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#388E3C"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AAAAAA"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
-            <Setter Property="Background" Value="#C62828"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D32F2F"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AAAAAA"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
-            <Setter Property="Background" Value="#E8E4DF"/>
-            <Setter Property="Foreground" Value="#333333"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D8D4CF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="GroupBoxStyle" TargetType="GroupBox">
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="Background" Value="White"/>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/IndustrialTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid Margin="15">
@@ -167,33 +79,33 @@
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputValueAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding OutputValueType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="1" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding OutputValueCurrent}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Text="{Binding OutputValueCurrent}" Style="{StaticResource BoldValueStyle}"/>
                 </Border>
-                <Button Grid.Row="1" Grid.Column="4" Content="读" Command="{Binding ReadOutputValueCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="1" Grid.Column="4" Content="读" Command="{Binding ReadOutputValueCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
                 <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding OutputValueWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="1" Grid.Column="6" Content="写" Command="{Binding WriteOutputValueCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="1" Grid.Column="6" Content="写" Command="{Binding WriteOutputValueCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
 
                 <!-- 定位角度 -->
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="定位角度" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding RotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="2" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding RotationAngleCurrent}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Text="{Binding RotationAngleCurrent}" Style="{StaticResource BoldValueStyle}"/>
                 </Border>
-                <Button Grid.Row="2" Grid.Column="4" Content="读" Command="{Binding ReadRotationAngleCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="2" Grid.Column="4" Content="读" Command="{Binding ReadRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
                 <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding RotationAngleWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="2" Grid.Column="6" Content="写" Command="{Binding WriteRotationAngleCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="2" Grid.Column="6" Content="写" Command="{Binding WriteRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
 
                 <!-- 产品合格 -->
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="产品合格" Style="{StaticResource LabelStyle}"/>
                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResultAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
                 <ComboBox Grid.Row="3" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding ResultType}" Height="24" FontSize="11" Margin="0,2"/>
                 <Border Grid.Row="3" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding ResultCurrent}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Text="{Binding ResultCurrent}" Style="{StaticResource BoldValueStyle}"/>
                 </Border>
-                <Button Grid.Row="3" Grid.Column="4" Content="读" Command="{Binding ReadResultCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="3" Grid.Column="4" Content="读" Command="{Binding ReadResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
                 <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding ResultWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="3" Grid.Column="6" Content="写" Command="{Binding WriteResultCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Grid.Row="3" Grid.Column="6" Content="写" Command="{Binding WriteResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
             </Grid>
         </GroupBox>
 

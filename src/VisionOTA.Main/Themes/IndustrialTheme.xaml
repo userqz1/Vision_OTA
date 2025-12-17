@@ -37,7 +37,130 @@
     <FontFamily x:Key="PrimaryFont">Segoe UI, Microsoft YaHei UI</FontFamily>
     <FontFamily x:Key="MonoFont">Consolas, Microsoft YaHei UI</FontFamily>
 
-    <!-- 按钮样式 -->
+    <!-- ==================== 窗口通用样式 ==================== -->
+
+    <!-- 表单标签样式 -->
+    <Style x:Key="LabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#333333"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+    </Style>
+
+    <!-- 值显示样式 -->
+    <Style x:Key="ValueStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#666666"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- 粗体值显示样式 -->
+    <Style x:Key="BoldValueStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#333333"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- 输入框样式 -->
+    <Style x:Key="InputStyle" TargetType="TextBox">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="6,0"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+
+    <!-- 下拉框样式 -->
+    <Style x:Key="ComboStyle" TargetType="ComboBox">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+
+    <!-- 基础按钮样式 -->
+    <Style x:Key="ButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinWidth" Value="70"/>
+        <Setter Property="Background" Value="#333333"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Margin" Value="3,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#555555"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="#AAAAAA"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 成功按钮样式（绿色） -->
+    <Style x:Key="SuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+        <Setter Property="Background" Value="#2E7D32"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#388E3C"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="#AAAAAA"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 危险按钮样式（红色） -->
+    <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+        <Setter Property="Background" Value="#C62828"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#D32F2F"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="#AAAAAA"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 次要按钮样式（灰色） -->
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+        <Setter Property="Background" Value="#E8E4DF"/>
+        <Setter Property="Foreground" Value="#333333"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#D8D4CF"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 分组框样式 -->
+    <Style x:Key="GroupBoxStyle" TargetType="GroupBox">
+        <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="Padding" Value="10"/>
+        <Setter Property="Background" Value="White"/>
+    </Style>
+
+    <!-- ==================== 主程序样式 ==================== -->
+
+    <!-- 主按钮样式 -->
     <Style x:Key="PrimaryButton" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
         <Setter Property="Foreground" Value="White"/>

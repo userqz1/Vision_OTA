@@ -58,6 +58,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Camera\CameraFactory.cs" />
+    <Compile Include="Camera\DushenCameraBase.cs" />
     <Compile Include="Camera\DushenAreaCamera.cs" />
     <Compile Include="Camera\DushenLineCamera.cs" />
     <Compile Include="Camera\ICamera.cs" />
