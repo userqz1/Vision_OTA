@@ -167,13 +167,40 @@ namespace VisionOTA.Core.Services
                     StartPlcReconnect();
                 }
 
-                // 初始化视觉处理器（暂用模拟处理器，后续替换为VisionPro）
-                _visionProcessors[1] = new MockVisionProcessor(1);
-                _visionProcessors[2] = new MockVisionProcessor(2);
-
-                // 加载视觉工具块配置
+                // 初始化VisionMaster方案
                 var visionConfig = ConfigManager.Instance.Vision;
-                FileLogger.Instance.Info($"视觉配置: 工位1={visionConfig.Station1VppPath}, 工位2={visionConfig.Station2VppPath}", "Inspection");
+                if (!string.IsNullOrEmpty(visionConfig.VisionMaster?.SolutionPath))
+                {
+                    var solutionLoaded = VisionMasterSolutionManager.Instance.LoadSolution(
+                        visionConfig.VisionMaster.SolutionPath,
+                        visionConfig.VisionMaster.Password ?? "");
+
+                    if (!solutionLoaded)
+                    {
+                        FileLogger.Instance.Warning("VisionMaster方案加载失败，将使用模拟处理器", "Inspection");
+                    }
+                }
+
+                // 初始化视觉处理器
+                var processor1 = new VisionMasterProcessor(1);
+                var processor2 = new VisionMasterProcessor(2);
+
+                // 配置工位1（瓶底定位）
+                processor1.ConfigureOutputs(
+                    visionConfig.Station1.AngleOutputName,
+                    visionConfig.Station1.ResultImageOutputName);
+                processor1.LoadToolBlock(visionConfig.Station1.ProcedureName);
+
+                // 配置工位2（瓶身定位）
+                processor2.ConfigureOutputs(
+                    visionConfig.Station2.AngleOutputName,
+                    visionConfig.Station2.ResultImageOutputName);
+                processor2.LoadToolBlock(visionConfig.Station2.ProcedureName);
+
+                _visionProcessors[1] = processor1;
+                _visionProcessors[2] = processor2;
+
+                FileLogger.Instance.Info($"视觉配置: 工位1={visionConfig.Station1.ProcedureName}, 工位2={visionConfig.Station2.ProcedureName}", "Inspection");
 
                 FileLogger.Instance.Info("检测服务初始化完成", "Inspection");
                 return true;
@@ -484,7 +511,7 @@ namespace VisionOTA.Core.Services
             });
         }
 
-        private void OnImageReceived(object sender, ImageReceivedEventArgs e)
+        private async void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
             // 根据相机实例确定工位ID
             int stationId = 0;
@@ -497,7 +524,9 @@ namespace VisionOTA.Core.Services
                 }
             }
 
-            // 图像接收处理
+            if (stationId == 0) return;
+
+            // 发布图像接收事件（UI更新）
             EventAggregator.Instance.Publish(new ImageReceivedEvent
             {
                 StationId = stationId,
@@ -505,6 +534,133 @@ namespace VisionOTA.Core.Services
                 Height = e.Height,
                 Timestamp = e.Timestamp
             });
+
+            // 如果系统正在运行且是硬件触发模式，直接执行检测
+            if (CurrentState == SystemState.Running && e.Image != null)
+            {
+                await ProcessImageAsync(stationId, e.Image);
+            }
+        }
+
+        /// <summary>
+        /// 处理图像（硬件触发模式）
+        /// </summary>
+        private async Task ProcessImageAsync(int stationId, Bitmap image)
+        {
+            try
+            {
+                var startTime = DateTime.Now;
+
+                // 1. 执行视觉处理
+                if (!_visionProcessors.ContainsKey(stationId) || !_visionProcessors[stationId].IsLoaded)
+                {
+                    FileLogger.Instance.Warning($"工位{stationId}视觉处理器未加载", "Inspection");
+                    return;
+                }
+
+                var visionResult = _visionProcessors[stationId].Execute(image);
+
+                var result = new InspectionResult
+                {
+                    StationId = stationId,
+                    Timestamp = DateTime.Now,
+                    ResultType = visionResult.Found ? InspectionResultType.Ok : InspectionResultType.Ng,
+                    Score = visionResult.Score,
+                    Angle = visionResult.Angle,
+                    X = visionResult.X,
+                    Y = visionResult.Y,
+                    ProcessTimeMs = visionResult.ProcessTimeMs,
+                    ResultImage = visionResult.ResultImage
+                };
+
+                // 2. 并行执行：统计更新、PLC写入、图片保存
+                var tasks = new List<Task>();
+
+                // 统计更新
+                tasks.Add(Task.Run(() => _statisticsService.AddResult(stationId, result.IsOk)));
+
+                // PLC写入
+                if (_plc.IsConnected)
+                {
+                    tasks.Add(WritePlcResultAsync(result));
+                }
+
+                // 图片保存
+                if (result.ResultImage != null)
+                {
+                    tasks.Add(Task.Run(() =>
+                    {
+                        result.ImagePath = ImageStorage.Instance.SaveImage(result.ResultImage, stationId, result.IsOk);
+                    }));
+                }
+
+                await Task.WhenAll(tasks);
+
+                // 3. 处理连续失败
+                HandleConsecutiveFailures(stationId, result.IsOk);
+
+                // 4. 触发完成事件（UI更新）
+                InspectionCompleted?.Invoke(this, new InspectionCompletedEventArgs { Result = result });
+
+                EventAggregator.Instance.Publish(new InspectionCompletedEvent
+                {
+                    StationId = stationId,
+                    IsOk = result.IsOk,
+                    Angle = result.Angle,
+                    Score = result.Score,
+                    Timestamp = result.Timestamp
+                });
+
+                FileLogger.Instance.Debug($"工位{stationId}检测完成: {(result.IsOk ? "OK" : "NG")}, 角度={result.Angle:F2}, 耗时={result.ProcessTimeMs:F0}ms", "Inspection");
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{stationId}检测处理失败: {ex.Message}", ex, "Inspection");
+            }
+        }
+
+        /// <summary>
+        /// 写入PLC结果
+        /// </summary>
+        private async Task WritePlcResultAsync(InspectionResult result)
+        {
+            try
+            {
+                var plcConfig = ConfigManager.Instance.Plc;
+
+                // 写入结果 (1.0=OK, 0.0=NG) - REAL类型
+                await _plc.WriteFloatAsync(plcConfig.OutputAddresses.Result.Address, result.IsOk ? 1.0f : 0.0f);
+
+                // 写入角度值（仅OK时有效）- REAL类型
+                if (result.IsOk)
+                {
+                    await _plc.WriteFloatAsync(plcConfig.OutputAddresses.RotationAngle.Address, (float)result.Angle);
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"写入PLC失败: {ex.Message}", ex, "Inspection");
+            }
+        }
+
+        /// <summary>
+        /// 处理连续失败
+        /// </summary>
+        private void HandleConsecutiveFailures(int stationId, bool isOk)
+        {
+            if (!isOk)
+            {
+                _consecutiveFailures++;
+                var threshold = ConfigManager.Instance.SystemCfg.ConsecutiveFailureAlarmThreshold;
+                if (_consecutiveFailures >= threshold)
+                {
+                    ErrorOccurred?.Invoke(this, $"工位{stationId}连续{_consecutiveFailures}次检测失败");
+                }
+            }
+            else
+            {
+                _consecutiveFailures = 0;
+            }
         }
 
         private void OnCameraConnectionChanged(object sender, ConnectionChangedEventArgs e)
@@ -589,6 +745,9 @@ namespace VisionOTA.Core.Services
             {
                 vision.Dispose();
             }
+
+            // 关闭VisionMaster方案
+            VisionMasterSolutionManager.Instance.Dispose();
 
             _plc?.Dispose();
             _isDisposed = true;

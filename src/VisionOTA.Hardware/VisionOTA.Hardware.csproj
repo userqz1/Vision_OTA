@@ -62,6 +62,12 @@
     <Reference Include="VM.PlatformSDKCS">
       <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\VM.PlatformSDKCS.dll</HintPath>
     </Reference>
+    <Reference Include="ImageSourceModuleCs">
+      <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\ImageSourceModuleCs.dll</HintPath>
+    </Reference>
+    <Reference Include="OutputImageModuleCs">
+      <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\OutputImageModuleCs.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Camera\CameraFactory.cs" />

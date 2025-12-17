@@ -1,7 +1,20 @@
 {
-  "Station1VppPath": "vision\\station1.vpp",
-  "Station2VppPath": "vision\\station2.vpp",
-  "ScoreThreshold": 0.7,
+  "VisionMaster": {
+    "SolutionPath": "D:\\Vision_OTA\\杭州腾隆化妆瓶算法流程.sol",
+    "Password": ""
+  },
+  "Station1": {
+    "ProcedureName": "流程10000",
+    "AngleOutputName": "瓶底角度",
+    "ResultImageOutputName": "瓶底结果图",
+    "ScoreThreshold": 0.7
+  },
+  "Station2": {
+    "ProcedureName": "流程10001",
+    "AngleOutputName": "瓶身角度",
+    "ResultImageOutputName": "瓶身结果图",
+    "ScoreThreshold": 0.7
+  },
   "Timeout": 5000,
   "ShowIntermediateResults": false,
   "EnableGraphicOverlay": true

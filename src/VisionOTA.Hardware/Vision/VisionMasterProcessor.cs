@@ -1,8 +1,12 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+using VisionOTA.Infrastructure.Logging;
+
+// VisionMaster SDK
 using VM.Core;
 using VM.PlatformSDKCS;
-using VisionOTA.Infrastructure.Logging;
 
 namespace VisionOTA.Hardware.Vision
 {
@@ -16,6 +20,11 @@ namespace VisionOTA.Hardware.Vision
         private double _scoreThreshold = 0.5;
         private VisionResult _lastResult;
         private bool _isLoaded;
+        private readonly int _stationId;
+
+        // 输出变量名配置
+        private string _angleOutputName = "瓶底角度";
+        private string _resultImageOutputName = "瓶底结果图";
 
         public bool IsLoaded => _isLoaded;
 
@@ -32,14 +41,27 @@ namespace VisionOTA.Hardware.Vision
         /// </summary>
         public VmProcedure Procedure => _procedure;
 
-        public VisionMasterProcessor()
+        public VisionMasterProcessor(int stationId)
         {
+            _stationId = stationId;
+        }
+
+        /// <summary>
+        /// 配置输出变量名
+        /// </summary>
+        /// <param name="angleOutputName">角度输出变量名</param>
+        /// <param name="resultImageOutputName">结果图输出变量名</param>
+        public void ConfigureOutputs(string angleOutputName, string resultImageOutputName)
+        {
+            _angleOutputName = angleOutputName;
+            _resultImageOutputName = resultImageOutputName;
+            FileLogger.Instance.Info($"工位{_stationId}输出配置: 角度={angleOutputName}, 结果图={resultImageOutputName}", "VisionMaster");
         }
 
         /// <summary>
         /// 加载VisionMaster流程（通过方案中的流程名称）
         /// </summary>
-        /// <param name="procedureName">流程名称，如"瓶底工位"</param>
+        /// <param name="procedureName">流程名称，如"瓶底定位"</param>
         /// <returns>是否成功</returns>
         public bool LoadToolBlock(string procedureName)
         {
@@ -97,27 +119,25 @@ namespace VisionOTA.Hardware.Vision
                     return result;
                 }
 
-                // TODO: 设置输入图像到流程
-                // 需要根据具体流程配置来设置图像输入
+                // 设置输入图像（如果需要从外部传入图像）
+                if (image != null)
+                {
+                    SetInputImage(image);
+                }
 
                 // 执行流程
                 _procedure.Run();
 
-                // TODO: 从流程获取结果
-                // 需要根据具体流程配置来获取输出结果
-                // 示例：
-                // var moduleResult = _procedure.ModuResult;
-                // result.Angle = moduleResult.GetOutputFloat("angle").fValue;
-                // result.Score = moduleResult.GetOutputFloat("score").fValue;
+                // 提取结果
+                ExtractResult(result);
 
-                result.Found = true; // 根据实际结果判断
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-
                 _lastResult = result;
+
                 ProcessCompleted?.Invoke(this, new VisionProcessCompletedEventArgs
                 {
                     Result = result,
-                    StationId = 0
+                    StationId = _stationId
                 });
             }
             catch (VmException ex)
@@ -141,50 +161,142 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
+        /// 设置输入图像到图像源模块（VisionMaster流程内部已配置相机，通常不需要外部传入）
+        /// </summary>
+        private void SetInputImage(Bitmap image)
+        {
+            // VisionMaster流程内部已配置相机触发，不需要从外部设置图像
+            // 如果需要从SDK设置图像，可在此扩展
+            FileLogger.Instance.Debug($"收到外部图像: {image?.Width}x{image?.Height}，使用流程内部图像源", "VisionMaster");
+        }
+
+        /// <summary>
+        /// 从流程输出提取结果
+        /// </summary>
+        private void ExtractResult(VisionResult result)
+        {
+            try
+            {
+                // 从流程输出设置获取角度值
+                // 路径格式: 流程名.Outputs.变量名.Value
+                var anglePath = $"{_procedureName}.Outputs.{_angleOutputName}.Value";
+
+                var angleValue = VmSolution.Instance[anglePath];
+                if (angleValue != null)
+                {
+                    if (angleValue is Array angleArray && angleArray.Length > 0)
+                    {
+                        result.Angle = Convert.ToDouble(angleArray.GetValue(0));
+                    }
+                    else
+                    {
+                        result.Angle = Convert.ToDouble(angleValue);
+                    }
+
+                    result.Found = true;
+                    FileLogger.Instance.Debug($"工位{_stationId}结果: 角度={result.Angle:F2}", "VisionMaster");
+                }
+                else
+                {
+                    FileLogger.Instance.Warning($"未获取到角度值，路径: {anglePath}", "VisionMaster");
+                    result.Found = false;
+                    result.ErrorMessage = "未获取到角度值";
+                }
+
+                // 获取输出图像
+                result.ResultImage = GetOutputImage();
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"提取结果失败: {ex.Message}", "VisionMaster");
+                result.Found = false;
+                result.ErrorMessage = $"结果提取失败: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// 获取输出图像（从流程输出变量）
+        /// </summary>
+        private Bitmap GetOutputImage()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_resultImageOutputName))
+                {
+                    return null;
+                }
+
+                // 从流程输出设置获取结果图
+                // 路径格式: 流程名.Outputs.变量名.Value
+                var imagePath = $"{_procedureName}.Outputs.{_resultImageOutputName}.Value";
+                var imageValue = VmSolution.Instance[imagePath];
+
+                if (imageValue == null)
+                {
+                    FileLogger.Instance.Debug($"未获取到结果图，路径: {imagePath}", "VisionMaster");
+                    return null;
+                }
+
+                // 使用 VisionMaster 提供的方法获取图像
+                var vmImageData = _procedure.GetVmIOImageValue(_resultImageOutputName);
+                if (vmImageData != null)
+                {
+                    return ConvertVmImageToBitmap(vmImageData);
+                }
+
+                FileLogger.Instance.Debug($"结果图类型不支持: {imageValue.GetType().Name}", "VisionMaster");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"获取输出图像失败: {ex.Message}", "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 转换VisionMaster图像数据为Bitmap
+        /// </summary>
+        private Bitmap ConvertVmImageToBitmap(IVmImageData vmImageData)
+        {
+            try
+            {
+                if (vmImageData == null || vmImageData.Data == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                int width = vmImageData.Width;
+                int height = vmImageData.Height;
+
+                // 计算stride（4字节对齐）
+                int stride = ((width + 3) / 4) * 4;
+
+                var bitmap = new Bitmap(width, height, stride, PixelFormat.Format8bppIndexed, vmImageData.Data);
+
+                // 设置灰度调色板
+                var palette = bitmap.Palette;
+                for (int i = 0; i < 256; i++)
+                {
+                    palette.Entries[i] = Color.FromArgb(i, i, i);
+                }
+                bitmap.Palette = palette;
+
+                return bitmap;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"图像转换失败: {ex.Message}", ex, "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 执行一次流程（无需输入图像，使用流程内配置的图像源）
         /// </summary>
         public VisionResult ExecuteOnce()
         {
-            var result = new VisionResult();
-            var startTime = DateTime.Now;
-
-            try
-            {
-                if (!_isLoaded || _procedure == null)
-                {
-                    result.Found = false;
-                    result.ErrorMessage = "流程未加载";
-                    return result;
-                }
-
-                _procedure.Run();
-
-                result.Found = true;
-                result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                _lastResult = result;
-
-                ProcessCompleted?.Invoke(this, new VisionProcessCompletedEventArgs
-                {
-                    Result = result,
-                    StationId = 0
-                });
-            }
-            catch (VmException ex)
-            {
-                result.Found = false;
-                result.ErrorMessage = $"执行失败: 0x{ex.errorCode:X}";
-                result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                FileLogger.Instance.Error(result.ErrorMessage, null, "VisionMaster");
-            }
-            catch (Exception ex)
-            {
-                result.Found = false;
-                result.ErrorMessage = $"执行失败: {ex.Message}";
-                result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                FileLogger.Instance.Error(result.ErrorMessage, ex, "VisionMaster");
-            }
-
-            return result;
+            return Execute(null);
         }
 
         public VisionResult GetLastResult() => _lastResult;
@@ -250,7 +362,12 @@ namespace VisionOTA.Hardware.Vision
                     CloseSolution();
                 }
 
+                FileLogger.Instance.Info($"正在加载VisionMaster方案: {solutionPath}", "VisionMaster");
                 VmSolution.Load(solutionPath, password);
+
+                // 禁用所有模块回调以提高性能
+                VmSolution.Instance.DisableModulesCallback();
+
                 _solutionPath = solutionPath;
                 _isSolutionLoaded = true;
 
