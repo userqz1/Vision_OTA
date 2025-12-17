@@ -110,7 +110,7 @@
 
                     <!-- 工位1标题 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-                        <TextBlock Text="工位 1" Style="{StaticResource SubHeaderLabel}"/>
+                        <TextBlock Text="瓶底定位" Style="{StaticResource SubHeaderLabel}"/>
                         <TextBlock Text=" - 面阵相机" Style="{StaticResource BodyLabel}" VerticalAlignment="Center"/>
                         <Ellipse Width="10" Height="10"
                                  Fill="{Binding Station1StatusColor}"
@@ -167,7 +167,7 @@
 
                     <!-- 工位2标题 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-                        <TextBlock Text="工位 2" Style="{StaticResource SubHeaderLabel}"/>
+                        <TextBlock Text="瓶身定位" Style="{StaticResource SubHeaderLabel}"/>
                         <TextBlock Text=" - 线扫相机" Style="{StaticResource BodyLabel}" VerticalAlignment="Center"/>
                         <Ellipse Width="10" Height="10"
                                  Fill="{Binding Station2StatusColor}"
@@ -226,21 +226,50 @@
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="最新结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
 
-                        <Border Background="{Binding LastResultBackground}"
+                        <!-- 瓶底定位结果 -->
+                        <Border Background="{Binding Station1ResultBackground}"
                                 CornerRadius="4"
-                                Padding="16"
+                                Padding="12"
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="瓶底定位"
+                                           FontSize="14" FontWeight="Bold"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Station1ResultText}"
+                                           FontSize="16" FontWeight="Bold"
+                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Station1Angle, StringFormat={}{0:F2}}"
+                                           FontSize="18" FontWeight="Bold"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- 瓶身定位结果 -->
+                        <Border Background="{Binding Station2ResultBackground}"
+                                CornerRadius="4"
+                                Padding="12"
                                 Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="{Binding LastResultText}"
-                                           FontSize="20"
-                                           FontWeight="Bold"
-                                           Foreground="White"
-                                           HorizontalAlignment="Center"/>
-                                <TextBlock Text="{Binding LastAngle, StringFormat=角度: {0:F2}}"
-                                           Foreground="White"
-                                           HorizontalAlignment="Center"
-                                           Margin="0,8,0,0"/>
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="瓶身定位"
+                                           FontSize="14" FontWeight="Bold"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Station2ResultText}"
+                                           FontSize="16" FontWeight="Bold"
+                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Station2Angle, StringFormat={}{0:F2}}"
+                                           FontSize="18" FontWeight="Bold"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                     </StackPanel>
 

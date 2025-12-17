@@ -54,10 +54,15 @@ namespace VisionOTA.Main.ViewModels
         private int _station2Ng;
         private double _station2Rate;
 
-        // 最新结果
-        private string _lastResultText = "--";
-        private SolidColorBrush _lastResultBackground = new SolidColorBrush(Colors.Gray);
-        private double _lastAngle;
+        // 工位1最新结果
+        private string _station1ResultText = "--";
+        private SolidColorBrush _station1ResultBackground = new SolidColorBrush(Colors.Gray);
+        private double _station1Angle;
+
+        // 工位2最新结果
+        private string _station2ResultText = "--";
+        private SolidColorBrush _station2ResultBackground = new SolidColorBrush(Colors.Gray);
+        private double _station2Angle;
 
         // 设备状态
         private SolidColorBrush _plcStatusColor = new SolidColorBrush(Colors.Gray);
@@ -212,23 +217,42 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _station2Rate, value);
         }
 
-        // 最新结果
-        public string LastResultText
+        // 工位1最新结果
+        public string Station1ResultText
         {
-            get => _lastResultText;
-            set => SetProperty(ref _lastResultText, value);
+            get => _station1ResultText;
+            set => SetProperty(ref _station1ResultText, value);
         }
 
-        public SolidColorBrush LastResultBackground
+        public SolidColorBrush Station1ResultBackground
         {
-            get => _lastResultBackground;
-            set => SetProperty(ref _lastResultBackground, value);
+            get => _station1ResultBackground;
+            set => SetProperty(ref _station1ResultBackground, value);
         }
 
-        public double LastAngle
+        public double Station1Angle
         {
-            get => _lastAngle;
-            set => SetProperty(ref _lastAngle, value);
+            get => _station1Angle;
+            set => SetProperty(ref _station1Angle, value);
+        }
+
+        // 工位2最新结果
+        public string Station2ResultText
+        {
+            get => _station2ResultText;
+            set => SetProperty(ref _station2ResultText, value);
+        }
+
+        public SolidColorBrush Station2ResultBackground
+        {
+            get => _station2ResultBackground;
+            set => SetProperty(ref _station2ResultBackground, value);
+        }
+
+        public double Station2Angle
+        {
+            get => _station2Angle;
+            set => SetProperty(ref _station2Angle, value);
         }
 
         // 设备状态
@@ -467,17 +491,18 @@ namespace VisionOTA.Main.ViewModels
             RunOnUIThread(() =>
             {
                 var result = e.Result;
-
-                // 更新最新结果
-                LastResultText = result.IsOk ? "OK" : "NG";
-                LastResultBackground = result.IsOk
+                var resultBackground = result.IsOk
                     ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
                     : new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
-                LastAngle = result.Angle;
 
-                // 更新工位状态
+                // 根据工位ID分别更新对应工位的结果
                 if (result.StationId == 1)
                 {
+                    // 更新工位1最新结果
+                    Station1ResultText = result.IsOk ? "OK" : "NG";
+                    Station1ResultBackground = resultBackground;
+                    Station1Angle = result.Angle;
+
                     Station1StatusColor = result.IsOk
                         ? new SolidColorBrush(Colors.LimeGreen)
                         : new SolidColorBrush(Colors.Red);
@@ -489,6 +514,11 @@ namespace VisionOTA.Main.ViewModels
                 }
                 else if (result.StationId == 2)
                 {
+                    // 更新工位2最新结果
+                    Station2ResultText = result.IsOk ? "OK" : "NG";
+                    Station2ResultBackground = resultBackground;
+                    Station2Angle = result.Angle;
+
                     Station2StatusColor = result.IsOk
                         ? new SolidColorBrush(Colors.LimeGreen)
                         : new SolidColorBrush(Colors.Red);
