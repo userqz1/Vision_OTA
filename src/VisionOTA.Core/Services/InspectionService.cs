@@ -203,7 +203,9 @@ namespace VisionOTA.Core.Services
                 FileLogger.Instance.Info($"视觉配置: 工位1={visionConfig.Station1.ProcedureName}, 工位2={visionConfig.Station2.ProcedureName}", "Inspection");
 
                 // 读取PLC旋转角度并写入VisionMaster瓶身工位
+                FileLogger.Instance.Info(">>> 准备调用 InitializeRotationAngleAsync", "Inspection");
                 await InitializeRotationAngleAsync(processor2, plcConfig);
+                FileLogger.Instance.Info(">>> InitializeRotationAngleAsync 调用完成", "Inspection");
 
                 FileLogger.Instance.Info("检测服务初始化完成", "Inspection");
                 return true;
@@ -217,12 +219,54 @@ namespace VisionOTA.Core.Services
         }
 
         /// <summary>
+        /// 检测前设置旋转角度（从PLC读取并写入VisionMaster全局变量）
+        /// </summary>
+        private async Task SetRotationAngleBeforeInspectionAsync()
+        {
+            try
+            {
+                if (_plc == null || !_plc.IsConnected)
+                {
+                    return;
+                }
+
+                var plcConfig = ConfigManager.Instance.Plc;
+                var rotationAngleConfig = plcConfig.InputAddresses.RotationAngle;
+                if (rotationAngleConfig == null || string.IsNullOrEmpty(rotationAngleConfig.Address))
+                {
+                    return;
+                }
+
+                // 从PLC读取旋转角度
+                var rotationAngle = await _plc.ReadFloatAsync(rotationAngleConfig.Address);
+
+                // 写入VisionMaster瓶身工位的全局变量
+                if (_visionProcessors.ContainsKey(2))
+                {
+                    var processor = _visionProcessors[2] as VisionMasterProcessor;
+                    if (processor != null && processor.IsLoaded)
+                    {
+                        processor.SetInputParameter("旋转角度", rotationAngle);
+                        FileLogger.Instance.Debug($"瓶身工位检测前设置旋转角度: {rotationAngle:F2}", "Inspection");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"设置旋转角度失败: {ex.Message}", "Inspection");
+            }
+        }
+
+        /// <summary>
         /// 初始化旋转角度参数（从PLC读取并写入VisionMaster）
         /// </summary>
         private async Task InitializeRotationAngleAsync(VisionMasterProcessor processor, PlcConfig plcConfig)
         {
+            FileLogger.Instance.Info(">>> InitializeRotationAngleAsync 开始执行", "Inspection");
             try
             {
+                FileLogger.Instance.Debug($"PLC状态: _plc={(_plc != null ? "存在" : "null")}, IsConnected={_plc?.IsConnected}", "Inspection");
+
                 if (_plc == null || !_plc.IsConnected)
                 {
                     FileLogger.Instance.Warning("PLC未连接，无法读取旋转角度参数", "Inspection");
@@ -506,6 +550,12 @@ namespace VisionOTA.Core.Services
 
         private async Task ProcessStationAsync(int stationId)
         {
+            // 瓶身工位（工位2）检测前，先设置旋转角度
+            if (stationId == 2)
+            {
+                await SetRotationAngleBeforeInspectionAsync();
+            }
+
             var result = await ExecuteSingleAsync(stationId);
             if (result == null)
                 return;
@@ -604,6 +654,12 @@ namespace VisionOTA.Core.Services
             try
             {
                 var startTime = DateTime.Now;
+
+                // 瓶身工位（工位2）检测前，先设置旋转角度
+                if (stationId == 2)
+                {
+                    await SetRotationAngleBeforeInspectionAsync();
+                }
 
                 // 1. 执行视觉处理
                 if (!_visionProcessors.ContainsKey(stationId) || !_visionProcessors[stationId].IsLoaded)

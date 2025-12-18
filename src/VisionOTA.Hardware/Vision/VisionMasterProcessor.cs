@@ -8,6 +8,7 @@ using VisionOTA.Infrastructure.Logging;
 // VisionMaster SDK
 using VM.Core;
 using VM.PlatformSDKCS;
+using GlobalVariableModuleCs;
 
 namespace VisionOTA.Hardware.Vision
 {
@@ -60,35 +61,49 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 设置流程输入参数
+        /// 设置流程输入参数（通过全局变量）
         /// </summary>
-        /// <param name="parameterName">参数名称</param>
+        /// <param name="parameterName">参数名称（全局变量名）</param>
         /// <param name="value">参数值</param>
         /// <returns>是否成功</returns>
         public bool SetInputParameter(string parameterName, float value)
         {
             try
             {
-                if (!_isLoaded || _procedure == null)
+                FileLogger.Instance.Debug($"SetInputParameter开始: parameterName={parameterName}, value={value}", "VisionMaster");
+
+                if (VmSolution.Instance == null)
                 {
-                    FileLogger.Instance.Warning($"流程未加载，无法设置输入参数: {parameterName}", "VisionMaster");
+                    FileLogger.Instance.Warning("VmSolution.Instance为空", "VisionMaster");
                     return false;
                 }
 
-                // 使用VmProcedure的ModuParams.SetParamValue方法设置输入参数（参数值需转为字符串）
-                _procedure.ModuParams.SetParamValue(parameterName, value.ToString());
+                // 通过全局变量设置参数
+                var obj = VmSolution.Instance["全局变量1"];
+                FileLogger.Instance.Debug($"VmSolution.Instance[全局变量1] 类型: {obj?.GetType().Name ?? "null"}", "VisionMaster");
 
-                FileLogger.Instance.Info($"工位{_stationId}设置输入参数: {parameterName}={value:F2}", "VisionMaster");
-                return true;
-            }
-            catch (VmException ex)
-            {
-                FileLogger.Instance.Error($"设置输入参数失败: 0x{ex.errorCode:X}, 参数名={parameterName}", null, "VisionMaster");
-                return false;
+                GlobalVariableModuleTool globalVar = obj as GlobalVariableModuleTool;
+
+                if (globalVar != null)
+                {
+                    // 设置变量值
+                    globalVar.SetGlobalVar("旋转角度", value.ToString("F2"));
+
+                    // 读回验证
+                    string readBack = globalVar.GetGlobalVar("旋转角度");
+                    FileLogger.Instance.Info($"工位{_stationId}设置全局变量: 旋转角度={value:F2}, 读回={readBack}", "VisionMaster");
+
+                    return true;
+                }
+                else
+                {
+                    FileLogger.Instance.Warning($"未找到全局变量模块 '全局变量1', obj={obj?.GetType().Name ?? "null"}", "VisionMaster");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"设置输入参数失败: {ex.Message}, 参数名={parameterName}", ex, "VisionMaster");
+                FileLogger.Instance.Error($"设置全局变量失败: {ex.Message}", ex, "VisionMaster");
                 return false;
             }
         }

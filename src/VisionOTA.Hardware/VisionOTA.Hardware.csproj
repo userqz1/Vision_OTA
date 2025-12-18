@@ -52,6 +52,11 @@
     <Reference Include="DVPCameraCS64">
       <HintPath>C:\Program Files (x86)\DVP2 SDK CN\library\Visual C#\x64\DVPCameraCS64.dll</HintPath>
     </Reference>
+    <Reference Include="GlobalVariableModuleCs, Version=1.0.0.0, Culture=neutral, PublicKeyToken=df9beaf7c020f858, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files\VisionMaster4.2.0\Development\V4.x\ComControls\Assembly\GlobalVariableModuleCs.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />

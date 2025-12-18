@@ -4,13 +4,13 @@
     "Password": ""
   },
   "Station1": {
-    "ProcedureName": "流程10000",
+    "ProcedureName": "瓶底工位",
     "AngleOutputName": "瓶底角度",
     "ResultImageOutputName": "瓶底结果图",
     "ScoreThreshold": 0.7
   },
   "Station2": {
-    "ProcedureName": "流程10001",
+    "ProcedureName": "瓶身工位",
     "AngleOutputName": "瓶身角度",
     "ResultImageOutputName": "瓶身结果图",
     "ScoreThreshold": 0.7
