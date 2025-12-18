@@ -35,9 +35,15 @@ namespace VisionOTA.Main.Views
         {
             try
             {
-                // 尝试自动加载默认方案
-                if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
+                // 检查方案是否已加载（软件初始化时已加载）
+                if (VmSolution.Instance != null)
                 {
+                    // 使用已加载的方案
+                    UseExistingSolution();
+                }
+                else if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
+                {
+                    // 方案未加载，尝试加载
                     LoadSolution(DEFAULT_SOLUTION_PATH);
                 }
                 else
@@ -49,6 +55,47 @@ namespace VisionOTA.Main.Views
             {
                 ShowMessage($"初始化失败: {ex.Message}", true);
                 FileLogger.Instance.Error($"VisionMaster设置窗口初始化失败: {ex.Message}", ex, "VisionMaster");
+            }
+        }
+
+        /// <summary>
+        /// 使用已加载的方案（不重新加载）
+        /// </summary>
+        private void UseExistingSolution()
+        {
+            try
+            {
+                _isSolutionLoaded = true;
+                txtSolutionPath.Text = System.IO.Path.GetFileName(DEFAULT_SOLUTION_PATH);
+
+                // 获取流程
+                _station1Procedure = VmSolution.Instance[STATION1_NAME] as VmProcedure;
+                _station2Procedure = VmSolution.Instance[STATION2_NAME] as VmProcedure;
+
+                bool station1Ok = _station1Procedure != null;
+                bool station2Ok = _station2Procedure != null;
+
+                if (station1Ok && station2Ok)
+                {
+                    UpdateStatus(true, "方案已就绪");
+                    ShowMessage("使用已加载的方案", false);
+                }
+                else
+                {
+                    UpdateStatus(true, "方案已就绪");
+                    ShowMessage($"流程状态: 瓶底={station1Ok}, 瓶身={station2Ok}", false);
+                }
+
+                FileLogger.Instance.Info("算法设置窗口使用已加载的方案", "VisionMaster");
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"获取已加载方案失败: {ex.Message}", "VisionMaster");
+                // 如果获取失败，尝试重新加载
+                if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
+                {
+                    LoadSolution(DEFAULT_SOLUTION_PATH);
+                }
             }
         }
 
