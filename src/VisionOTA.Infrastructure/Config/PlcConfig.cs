@@ -107,6 +107,16 @@ namespace VisionOTA.Infrastructure.Config
             DataType = "BOOL",
             Description = "工位2触发信号"
         };
+
+        /// <summary>
+        /// 瓶身旋转角度（启动时读取写入VisionMaster）
+        /// </summary>
+        public PlcAddressItem RotationAngle { get; set; } = new PlcAddressItem
+        {
+            Address = "D4204",
+            DataType = "REAL",
+            Description = "瓶身旋转角度（启动时读取写入VisionMaster）"
+        };
     }
 
     /// <summary>

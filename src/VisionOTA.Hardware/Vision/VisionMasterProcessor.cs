@@ -60,6 +60,73 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
+        /// 设置流程输入参数
+        /// </summary>
+        /// <param name="parameterName">参数名称</param>
+        /// <param name="value">参数值</param>
+        /// <returns>是否成功</returns>
+        public bool SetInputParameter(string parameterName, float value)
+        {
+            try
+            {
+                if (!_isLoaded || _procedure == null)
+                {
+                    FileLogger.Instance.Warning($"流程未加载，无法设置输入参数: {parameterName}", "VisionMaster");
+                    return false;
+                }
+
+                // 使用VmProcedure的ModuParams.SetParamValue方法设置输入参数（参数值需转为字符串）
+                _procedure.ModuParams.SetParamValue(parameterName, value.ToString());
+
+                FileLogger.Instance.Info($"工位{_stationId}设置输入参数: {parameterName}={value:F2}", "VisionMaster");
+                return true;
+            }
+            catch (VmException ex)
+            {
+                FileLogger.Instance.Error($"设置输入参数失败: 0x{ex.errorCode:X}, 参数名={parameterName}", null, "VisionMaster");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"设置输入参数失败: {ex.Message}, 参数名={parameterName}", ex, "VisionMaster");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取流程输入参数值
+        /// </summary>
+        /// <param name="parameterName">参数名称</param>
+        /// <returns>参数值，获取失败返回null</returns>
+        public float? GetInputParameter(string parameterName)
+        {
+            try
+            {
+                if (!_isLoaded || _procedure == null)
+                {
+                    FileLogger.Instance.Warning($"流程未加载，无法获取输入参数: {parameterName}", "VisionMaster");
+                    return null;
+                }
+
+                // 从流程输入设置获取参数值
+                var inputPath = $"{_procedureName}.Inputs.{parameterName}.Value";
+                var value = VmSolution.Instance[inputPath];
+
+                if (value != null)
+                {
+                    return Convert.ToSingle(value);
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"获取输入参数失败: {ex.Message}, 参数名={parameterName}", ex, "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 加载VisionMaster流程（通过方案中的流程名称）
         /// </summary>
         /// <param name="procedureName">流程名称，如"瓶底定位"</param>

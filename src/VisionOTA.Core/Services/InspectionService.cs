@@ -202,6 +202,9 @@ namespace VisionOTA.Core.Services
 
                 FileLogger.Instance.Info($"视觉配置: 工位1={visionConfig.Station1.ProcedureName}, 工位2={visionConfig.Station2.ProcedureName}", "Inspection");
 
+                // 读取PLC旋转角度并写入VisionMaster瓶身工位
+                await InitializeRotationAngleAsync(processor2, plcConfig);
+
                 FileLogger.Instance.Info("检测服务初始化完成", "Inspection");
                 return true;
             }
@@ -210,6 +213,54 @@ namespace VisionOTA.Core.Services
                 FileLogger.Instance.Error($"检测服务初始化失败: {ex.Message}", ex, "Inspection");
                 ErrorOccurred?.Invoke(this, ex.Message);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 初始化旋转角度参数（从PLC读取并写入VisionMaster）
+        /// </summary>
+        private async Task InitializeRotationAngleAsync(VisionMasterProcessor processor, PlcConfig plcConfig)
+        {
+            try
+            {
+                if (_plc == null || !_plc.IsConnected)
+                {
+                    FileLogger.Instance.Warning("PLC未连接，无法读取旋转角度参数", "Inspection");
+                    return;
+                }
+
+                var rotationAngleConfig = plcConfig.InputAddresses.RotationAngle;
+                if (rotationAngleConfig == null || string.IsNullOrEmpty(rotationAngleConfig.Address))
+                {
+                    FileLogger.Instance.Warning("旋转角度地址未配置", "Inspection");
+                    return;
+                }
+
+                // 从PLC读取旋转角度
+                var rotationAngle = await _plc.ReadFloatAsync(rotationAngleConfig.Address);
+                FileLogger.Instance.Info($"从PLC读取旋转角度: {rotationAngle:F2}, 地址: {rotationAngleConfig.Address}", "Inspection");
+
+                // 写入VisionMaster瓶身工位的输入参数
+                if (processor != null && processor.IsLoaded)
+                {
+                    var success = processor.SetInputParameter("旋转角度", rotationAngle);
+                    if (success)
+                    {
+                        FileLogger.Instance.Info($"旋转角度已写入VisionMaster瓶身工位: {rotationAngle:F2}", "Inspection");
+                    }
+                    else
+                    {
+                        FileLogger.Instance.Warning($"旋转角度写入VisionMaster失败", "Inspection");
+                    }
+                }
+                else
+                {
+                    FileLogger.Instance.Warning("瓶身工位视觉处理器未加载，无法设置旋转角度", "Inspection");
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"初始化旋转角度失败: {ex.Message}", ex, "Inspection");
             }
         }
 

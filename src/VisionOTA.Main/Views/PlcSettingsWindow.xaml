@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PLC 设置"
-        Width="780" Height="520"
+        Width="780" Height="555"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#F5F3F0">
@@ -65,6 +65,7 @@
                     <RowDefinition Height="32"/>
                     <RowDefinition Height="32"/>
                     <RowDefinition Height="32"/>
+                    <RowDefinition Height="32"/>
                 </Grid.RowDefinitions>
 
                 <!-- 表头 -->
@@ -106,6 +107,17 @@
                 <Button Grid.Row="3" Grid.Column="4" Content="读" Command="{Binding ReadResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
                 <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding ResultWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
                 <Button Grid.Row="3" Grid.Column="6" Content="写" Command="{Binding WriteResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+
+                <!-- 瓶身旋转角度 (输入地址 - 启动时读取写入VisionMaster) -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="旋转角度" Style="{StaticResource LabelStyle}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding InputRotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
+                <ComboBox Grid.Row="4" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding InputRotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
+                <Border Grid.Row="4" Grid.Column="3" Background="#F0F0F0" Margin="2">
+                    <TextBlock Text="{Binding InputRotationAngleCurrent}" Style="{StaticResource BoldValueStyle}"/>
+                </Border>
+                <Button Grid.Row="4" Grid.Column="4" Content="读" Command="{Binding ReadInputRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding InputRotationAngleWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
+                <Button Grid.Row="4" Grid.Column="6" Content="写" Command="{Binding WriteInputRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
             </Grid>
         </GroupBox>
 

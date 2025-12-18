@@ -29,15 +29,21 @@ namespace VisionOTA.Main.ViewModels
         private string _resultAddress;
         private string _resultType;
 
+        // 输入地址 - 瓶身旋转角度（启动时读取写入VisionMaster）
+        private string _inputRotationAngleAddress;
+        private string _inputRotationAngleType;
+
         // 当前读取值
         private string _outputValueCurrent = "--";
         private string _rotationAngleCurrent = "--";
         private string _resultCurrent = "--";
+        private string _inputRotationAngleCurrent = "--";
 
         // 写入值
         private string _outputValueWrite = "0";
         private string _rotationAngleWrite = "0";
         private string _resultWrite = "0";
+        private string _inputRotationAngleWrite = "0";
 
         /// <summary>
         /// 支持的数据类型
@@ -119,6 +125,19 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _resultType, value);
         }
 
+        // 输入地址 - 瓶身旋转角度
+        public string InputRotationAngleAddress
+        {
+            get => _inputRotationAngleAddress;
+            set => SetProperty(ref _inputRotationAngleAddress, value);
+        }
+
+        public string InputRotationAngleType
+        {
+            get => _inputRotationAngleType;
+            set => SetProperty(ref _inputRotationAngleType, value);
+        }
+
         // 当前值
         public string OutputValueCurrent
         {
@@ -136,6 +155,12 @@ namespace VisionOTA.Main.ViewModels
         {
             get => _resultCurrent;
             set => SetProperty(ref _resultCurrent, value);
+        }
+
+        public string InputRotationAngleCurrent
+        {
+            get => _inputRotationAngleCurrent;
+            set => SetProperty(ref _inputRotationAngleCurrent, value);
         }
 
         // 写入值
@@ -157,6 +182,12 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _resultWrite, value);
         }
 
+        public string InputRotationAngleWrite
+        {
+            get => _inputRotationAngleWrite;
+            set => SetProperty(ref _inputRotationAngleWrite, value);
+        }
+
         #endregion
 
         #region Commands
@@ -170,6 +201,8 @@ namespace VisionOTA.Main.ViewModels
         public ICommand WriteRotationAngleCommand { get; }
         public ICommand ReadResultCommand { get; }
         public ICommand WriteResultCommand { get; }
+        public ICommand ReadInputRotationAngleCommand { get; }
+        public ICommand WriteInputRotationAngleCommand { get; }
         public ICommand ReadAllCommand { get; }
 
         public ICommand SaveCommand { get; }
@@ -190,6 +223,8 @@ namespace VisionOTA.Main.ViewModels
             WriteRotationAngleCommand = new RelayCommand(async _ => await WriteRotationAngleAsync(), _ => IsConnected);
             ReadResultCommand = new RelayCommand(async _ => await ReadResultAsync(), _ => IsConnected);
             WriteResultCommand = new RelayCommand(async _ => await WriteResultAsync(), _ => IsConnected);
+            ReadInputRotationAngleCommand = new RelayCommand(async _ => await ReadInputRotationAngleAsync(), _ => IsConnected);
+            WriteInputRotationAngleCommand = new RelayCommand(async _ => await WriteInputRotationAngleAsync(), _ => IsConnected);
             ReadAllCommand = new RelayCommand(async _ => await ReadAllAsync(), _ => IsConnected);
 
             SaveCommand = new RelayCommand(_ => Save());
@@ -214,6 +249,10 @@ namespace VisionOTA.Main.ViewModels
             RotationAngleType = config.OutputAddresses.RotationAngle.DataType;
             ResultAddress = config.OutputAddresses.Result.Address;
             ResultType = config.OutputAddresses.Result.DataType;
+
+            // 输入地址 - 瓶身旋转角度
+            InputRotationAngleAddress = config.InputAddresses.RotationAngle.Address;
+            InputRotationAngleType = config.InputAddresses.RotationAngle.DataType;
         }
 
         private async Task ConnectAsync()
@@ -250,6 +289,7 @@ namespace VisionOTA.Main.ViewModels
                 OutputValueCurrent = "--";
                 RotationAngleCurrent = "--";
                 ResultCurrent = "--";
+                InputRotationAngleCurrent = "--";
                 FileLogger.Instance.Info("PLC已断开", "PlcSettings");
                 CommandManager.InvalidateRequerySuggested();
             }
@@ -335,6 +375,34 @@ namespace VisionOTA.Main.ViewModels
             {
                 await WriteByTypeAsync(ResultAddress, ResultType, ResultWrite);
                 FileLogger.Instance.Info($"写入 {ResultAddress} ({ResultType}) = {ResultWrite}", "PlcSettings");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                FileLogger.Instance.Error($"写入失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task ReadInputRotationAngleAsync()
+        {
+            try
+            {
+                InputRotationAngleCurrent = await ReadByTypeAsync(InputRotationAngleAddress, InputRotationAngleType);
+                FileLogger.Instance.Debug($"读取 {InputRotationAngleAddress} ({InputRotationAngleType}) = {InputRotationAngleCurrent}", "PlcSettings");
+            }
+            catch (Exception ex)
+            {
+                InputRotationAngleCurrent = "ERR";
+                FileLogger.Instance.Error($"读取失败: {ex.Message}", ex, "PlcSettings");
+            }
+        }
+
+        private async Task WriteInputRotationAngleAsync()
+        {
+            try
+            {
+                await WriteByTypeAsync(InputRotationAngleAddress, InputRotationAngleType, InputRotationAngleWrite);
+                FileLogger.Instance.Info($"写入 {InputRotationAngleAddress} ({InputRotationAngleType}) = {InputRotationAngleWrite}", "PlcSettings");
             }
             catch (Exception ex)
             {
@@ -441,6 +509,7 @@ namespace VisionOTA.Main.ViewModels
             await ReadOutputValueAsync();
             await ReadRotationAngleAsync();
             await ReadResultAsync();
+            await ReadInputRotationAngleAsync();
         }
 
         private void Save()
@@ -466,6 +535,11 @@ namespace VisionOTA.Main.ViewModels
                 config.OutputAddresses.Result.Address = ResultAddress;
                 config.OutputAddresses.Result.DataType = ResultType;
                 config.OutputAddresses.Result.Description = "产品合格地址 (2=合格, 3=不合格)";
+
+                // 更新输入地址 - 瓶身旋转角度
+                config.InputAddresses.RotationAngle.Address = InputRotationAngleAddress;
+                config.InputAddresses.RotationAngle.DataType = InputRotationAngleType;
+                config.InputAddresses.RotationAngle.Description = "瓶身旋转角度（启动时读取写入VisionMaster）";
 
                 // 保存到文件
                 ConfigManager.Instance.SavePlcConfig();
