@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using VisionOTA.Infrastructure.Logging;
 
 // VisionMaster SDK
@@ -448,8 +449,26 @@ namespace VisionOTA.Hardware.Vision
 
         public void Dispose()
         {
-            CloseSolution();
-            VmSolution.Instance?.Dispose();
+            try
+            {
+                CloseSolution();
+                // 注意：VmSolution.Instance?.Dispose() 可能阻塞，移到后台线程
+                if (VmSolution.Instance != null)
+                {
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            VmSolution.Instance?.Dispose();
+                        }
+                        catch { }
+                    }).Wait(3000); // 最多等待3秒
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"VisionMaster清理失败: {ex.Message}", ex, "VisionMaster");
+            }
         }
     }
 }

@@ -513,6 +513,9 @@ namespace VisionOTA.Core.Services
 
         private async void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
+            // 如果已释放，直接返回
+            if (_isDisposed) return;
+
             // 根据相机实例确定工位ID
             int stationId = 0;
             foreach (var kvp in _cameras)
@@ -536,7 +539,7 @@ namespace VisionOTA.Core.Services
             });
 
             // 如果系统正在运行且是硬件触发模式，直接执行检测
-            if (CurrentState == SystemState.Running && e.Image != null)
+            if (!_isDisposed && CurrentState == SystemState.Running && e.Image != null)
             {
                 await ProcessImageAsync(stationId, e.Image);
             }
@@ -733,24 +736,51 @@ namespace VisionOTA.Core.Services
             if (_isDisposed)
                 return;
 
-            _runCts?.Cancel();
-            _runCts?.Dispose();
+            _isDisposed = true; // 先设置标志，防止异步操作继续
+
+            try
+            {
+                _runCts?.Cancel();
+            }
+            catch { }
+
+            // 给异步操作一点时间完成
+            Task.Delay(100).Wait();
+
+            try
+            {
+                _runCts?.Dispose();
+            }
+            catch { }
 
             foreach (var camera in _cameras.Values)
             {
-                camera.Dispose();
+                try { camera.Dispose(); } catch { }
             }
 
             foreach (var vision in _visionProcessors.Values)
             {
-                vision.Dispose();
+                try { vision.Dispose(); } catch { }
             }
 
-            // 关闭VisionMaster方案
-            VisionMasterSolutionManager.Instance.Dispose();
+            // 关闭VisionMaster方案（在后台线程，带超时）
+            try
+            {
+                var disposeTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        VisionMasterSolutionManager.Instance.Dispose();
+                    }
+                    catch { }
+                });
+                disposeTask.Wait(3000); // 最多等待3秒
+            }
+            catch { }
 
-            _plc?.Dispose();
-            _isDisposed = true;
+            try { _plc?.Dispose(); } catch { }
+
+            FileLogger.Instance.Info("检测服务已释放", "Inspection");
         }
     }
 }
