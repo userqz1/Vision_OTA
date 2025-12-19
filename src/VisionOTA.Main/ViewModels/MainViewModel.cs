@@ -70,6 +70,9 @@ namespace VisionOTA.Main.ViewModels
         private SolidColorBrush _camera2StatusColor = new SolidColorBrush(Colors.Gray);
         private SolidColorBrush _visionStatusColor = new SolidColorBrush(Colors.Gray);
 
+        // 辅助线显示
+        private bool _showCrosshair;
+
         #region Properties
 
         public string SystemStatus
@@ -118,6 +121,15 @@ namespace VisionOTA.Main.ViewModels
         }
 
         public bool CanOperate => IsLoggedIn && PermissionService.Instance.HasPermission(PermissionLevel.Operator);
+
+        /// <summary>
+        /// 是否显示辅助线
+        /// </summary>
+        public bool ShowCrosshair
+        {
+            get => _showCrosshair;
+            set => SetProperty(ref _showCrosshair, value);
+        }
 
         public bool IsLoginPanelVisible
         {

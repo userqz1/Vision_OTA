@@ -56,6 +56,18 @@ namespace VisionOTA.Main.ViewModels
         // 瓶身旋转状态
         private bool _isBottleRotating;
 
+        // 辅助线显示
+        private bool _showCrosshair;
+
+        /// <summary>
+        /// 是否显示辅助线
+        /// </summary>
+        public bool ShowCrosshair
+        {
+            get => _showCrosshair;
+            set => SetProperty(ref _showCrosshair, value);
+        }
+
         /// <summary>
         /// 触发模式：连续采集或触发采集
         /// </summary>

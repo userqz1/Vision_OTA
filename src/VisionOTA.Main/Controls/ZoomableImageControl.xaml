@@ -1,0 +1,107 @@
+<UserControl x:Class="VisionOTA.Main.Controls.ZoomableImageControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#1A1A1A"
+             ClipToBounds="True">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 图像显示区域 -->
+        <Grid x:Name="ImageContainer" Grid.Row="0" ClipToBounds="True"
+              MouseWheel="ImageContainer_MouseWheel"
+              MouseLeftButtonDown="ImageContainer_MouseLeftButtonDown"
+              MouseLeftButtonUp="ImageContainer_MouseLeftButtonUp"
+              MouseMove="ImageContainer_MouseMove"
+              MouseRightButtonDown="ImageContainer_MouseRightButtonDown">
+
+            <!-- 图像 -->
+            <Image x:Name="DisplayImage"
+                   Stretch="None"
+                   RenderOptions.BitmapScalingMode="NearestNeighbor"
+                   RenderOptions.EdgeMode="Aliased"
+                   SnapsToDevicePixels="True"
+                   UseLayoutRounding="True"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
+                        <TranslateTransform x:Name="TranslateTransform" X="0" Y="0"/>
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+
+            <!-- 辅助线（中心十字线） -->
+            <Canvas x:Name="CrosshairCanvas" IsHitTestVisible="False"
+                    Visibility="{Binding CrosshairVisibility, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                <!-- 水平中心线 -->
+                <Line x:Name="HorizontalLine"
+                      Stroke="#80FF0000" StrokeThickness="1"
+                      StrokeDashArray="4 2"/>
+                <!-- 垂直中心线 -->
+                <Line x:Name="VerticalLine"
+                      Stroke="#80FF0000" StrokeThickness="1"
+                      StrokeDashArray="4 2"/>
+            </Canvas>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <Border Grid.Row="1" Background="#2A2A2A" Padding="8,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 坐标信息 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="X:" Foreground="#999999" FontSize="11"/>
+                    <TextBlock x:Name="TxtX" Text="0" Foreground="White" FontSize="11" Width="45" Margin="2,0,10,0"/>
+                    <TextBlock Text="Y:" Foreground="#999999" FontSize="11"/>
+                    <TextBlock x:Name="TxtY" Text="0" Foreground="White" FontSize="11" Width="45" Margin="2,0,10,0"/>
+                    <TextBlock Text="像素:" Foreground="#999999" FontSize="11"/>
+                    <TextBlock x:Name="TxtPixel" Text="-" Foreground="White" FontSize="11" Width="80" Margin="2,0,0,0"/>
+                </StackPanel>
+
+                <!-- 图像尺寸 -->
+                <TextBlock Grid.Column="1" x:Name="TxtImageSize" Text=""
+                           Foreground="#666666" FontSize="11"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- 缩放信息和控制 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock Text="缩放:" Foreground="#999999" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtZoom" Text="100%" Foreground="White" FontSize="11"
+                               Width="45" Margin="2,0,8,0" VerticalAlignment="Center"/>
+                    <Button x:Name="BtnFit" Content="适应" Click="BtnFit_Click"
+                            Width="40" Height="20" FontSize="10"
+                            Background="#444444" Foreground="White" BorderThickness="0" Margin="0,0,4,0"/>
+                    <Button x:Name="Btn100" Content="1:1" Click="Btn100_Click"
+                            Width="32" Height="20" FontSize="10"
+                            Background="#444444" Foreground="White" BorderThickness="0" Margin="0,0,4,0"/>
+                    <ToggleButton x:Name="BtnCrosshair" Content="╋" Click="BtnCrosshair_Click"
+                                  Width="24" Height="20" FontSize="12"
+                                  Background="#444444" Foreground="White" BorderThickness="0"
+                                  ToolTip="显示/隐藏辅助线"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 右键菜单 -->
+        <Grid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="适应窗口" Click="MenuFit_Click"/>
+                <MenuItem Header="1:1 显示" Click="Menu100_Click"/>
+                <Separator/>
+                <MenuItem x:Name="MenuCrosshair" Header="显示辅助线" IsCheckable="True" Click="MenuCrosshair_Click"/>
+                <Separator/>
+                <MenuItem Header="保存图片" Click="MenuSave_Click"/>
+            </ContextMenu>
+        </Grid.ContextMenu>
+    </Grid>
+</UserControl>

@@ -1,6 +1,7 @@
 <Window x:Class="VisionOTA.Main.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:VisionOTA.Main.Controls"
         Title="VisionOTA - 视觉检测系统"
         Width="1920" Height="1080"
         WindowState="Maximized"
@@ -119,13 +120,9 @@
                     </StackPanel>
 
                     <!-- 工位1图像显示 -->
-                    <Border Grid.Row="1"
-                            Background="{StaticResource SecondaryBackgroundBrush}"
-                            CornerRadius="4">
-                        <Image x:Name="Station1Image"
-                               Source="{Binding Station1Image}"
-                               Stretch="Uniform"/>
-                    </Border>
+                    <controls:ZoomableImageControl Grid.Row="1"
+                        ImageSource="{Binding Station1Image}"
+                        ShowCrosshair="{Binding ShowCrosshair}"/>
 
                     <!-- 工位1统计 -->
                     <Grid Grid.Row="2" Margin="0,16,0,0">
@@ -176,13 +173,9 @@
                     </StackPanel>
 
                     <!-- 工位2图像显示 -->
-                    <Border Grid.Row="1"
-                            Background="{StaticResource SecondaryBackgroundBrush}"
-                            CornerRadius="4">
-                        <Image x:Name="Station2Image"
-                               Source="{Binding Station2Image}"
-                               Stretch="Uniform"/>
-                    </Border>
+                    <controls:ZoomableImageControl Grid.Row="1"
+                        ImageSource="{Binding Station2Image}"
+                        ShowCrosshair="{Binding ShowCrosshair}"/>
 
                     <!-- 工位2统计 -->
                     <Grid Grid.Row="2" Margin="0,16,0,0">
