@@ -1,8 +1,9 @@
 <Window x:Class="VisionOTA.Main.Views.PlcSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:VisionOTA.Main.ViewModels"
         Title="PLC 设置"
-        Width="780" Height="555"
+        Width="780" Height="500"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#F5F3F0">
@@ -12,11 +13,43 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="../Themes/IndustrialTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- PLC地址行模板 -->
+            <DataTemplate x:Key="PlcAddressRowTemplate">
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource LabelStyle}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource InputStyle}" Margin="0,0,5,0"/>
+                    <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:PlcAddressViewModel.DataTypes}"
+                              SelectedItem="{Binding DataType}" Height="24" FontSize="11"/>
+                    <Border Grid.Column="3" Background="#F0F0F0" Margin="2" CornerRadius="2">
+                        <TextBlock Text="{Binding CurrentValue}" Style="{StaticResource BoldValueStyle}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Button Grid.Column="4" Content="读" Command="{Binding ReadCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                    <TextBox Grid.Column="5" Text="{Binding WriteValue, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource InputStyle}" Margin="2"/>
+                    <Button Grid.Column="6" Content="写" Command="{Binding WriteCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                </Grid>
+            </DataTemplate>
         </ResourceDictionary>
     </Window.Resources>
 
     <Grid Margin="15">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -48,87 +81,78 @@
             </Grid>
         </GroupBox>
 
-        <!-- 地址测试 -->
-        <GroupBox Grid.Row="1" Header="地址读写测试" Style="{StaticResource GroupBoxStyle}">
+        <!-- 输出地址 -->
+        <GroupBox Grid.Row="1" Header="输出地址" Style="{StaticResource GroupBoxStyle}">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="70"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="55"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="40"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="40"/>
-                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="32"/>
-                    <RowDefinition Height="32"/>
-                    <RowDefinition Height="32"/>
-                    <RowDefinition Height="32"/>
-                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- 表头 -->
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="地址" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="类型" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
-                <TextBlock Grid.Row="0" Grid.Column="3" Text="当前值" Style="{StaticResource LabelStyle}" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Grid.Row="0" Grid.Column="5" Text="写入值" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                <Grid Grid.Row="0" Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="名称" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="地址" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="2" Text="类型" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="3" Text="当前值" Style="{StaticResource LabelStyle}" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="5" Text="写入值" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                </Grid>
 
-                <!-- 瓶身旋转 -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="瓶身旋转" Style="{StaticResource LabelStyle}"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OutputValueAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding OutputValueType}" Height="24" FontSize="11" Margin="0,2"/>
-                <Border Grid.Row="1" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding OutputValueCurrent}" Style="{StaticResource BoldValueStyle}"/>
-                </Border>
-                <Button Grid.Row="1" Grid.Column="4" Content="读" Command="{Binding ReadOutputValueCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
-                <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding OutputValueWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="1" Grid.Column="6" Content="写" Command="{Binding WriteOutputValueCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                <!-- 输出地址列表 -->
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding OutputAddresses}"
+                              ItemTemplate="{StaticResource PlcAddressRowTemplate}"/>
+            </Grid>
+        </GroupBox>
 
-                <!-- 定位角度 -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="定位角度" Style="{StaticResource LabelStyle}"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding RotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
-                <Border Grid.Row="2" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding RotationAngleCurrent}" Style="{StaticResource BoldValueStyle}"/>
-                </Border>
-                <Button Grid.Row="2" Grid.Column="4" Content="读" Command="{Binding ReadRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
-                <TextBox Grid.Row="2" Grid.Column="5" Text="{Binding RotationAngleWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="2" Grid.Column="6" Content="写" Command="{Binding WriteRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+        <!-- 输入地址 -->
+        <GroupBox Grid.Row="2" Header="输入地址" Style="{StaticResource GroupBoxStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- 产品合格 -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="产品合格" Style="{StaticResource LabelStyle}"/>
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ResultAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <ComboBox Grid.Row="3" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding ResultType}" Height="24" FontSize="11" Margin="0,2"/>
-                <Border Grid.Row="3" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding ResultCurrent}" Style="{StaticResource BoldValueStyle}"/>
-                </Border>
-                <Button Grid.Row="3" Grid.Column="4" Content="读" Command="{Binding ReadResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
-                <TextBox Grid.Row="3" Grid.Column="5" Text="{Binding ResultWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="3" Grid.Column="6" Content="写" Command="{Binding WriteResultCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                <!-- 表头 -->
+                <Grid Grid.Row="0" Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="名称" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="地址" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="2" Text="类型" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="3" Text="当前值" Style="{StaticResource LabelStyle}" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="5" Text="写入值" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                </Grid>
 
-                <!-- 瓶身旋转角度 (输入地址 - 启动时读取写入VisionMaster) -->
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="旋转角度" Style="{StaticResource LabelStyle}"/>
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding InputRotationAngleAddress}" Style="{StaticResource InputStyle}" Margin="0,2,5,2"/>
-                <ComboBox Grid.Row="4" Grid.Column="2" ItemsSource="{Binding DataTypes}" SelectedItem="{Binding InputRotationAngleType}" Height="24" FontSize="11" Margin="0,2"/>
-                <Border Grid.Row="4" Grid.Column="3" Background="#F0F0F0" Margin="2">
-                    <TextBlock Text="{Binding InputRotationAngleCurrent}" Style="{StaticResource BoldValueStyle}"/>
-                </Border>
-                <Button Grid.Row="4" Grid.Column="4" Content="读" Command="{Binding ReadInputRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
-                <TextBox Grid.Row="4" Grid.Column="5" Text="{Binding InputRotationAngleWrite}" Style="{StaticResource InputStyle}" Margin="2"/>
-                <Button Grid.Row="4" Grid.Column="6" Content="写" Command="{Binding WriteInputRotationAngleCommand}" Style="{StaticResource ButtonStyle}" MinWidth="35"/>
+                <!-- 输入地址列表 -->
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding InputAddresses}"
+                              ItemTemplate="{StaticResource PlcAddressRowTemplate}"/>
             </Grid>
         </GroupBox>
 
         <!-- 全部读取按钮 -->
-        <Button Grid.Row="2" Content="读取全部" Command="{Binding ReadAllCommand}"
+        <Button Grid.Row="3" Content="读取全部" Command="{Binding ReadAllCommand}"
                 Style="{StaticResource SecondaryButtonStyle}"
                 Width="100" Height="32"
                 HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
         <!-- 底部按钮 -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource ButtonStyle}" Width="90"/>
             <Button Content="关闭" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="90" Margin="10,0,0,0"/>
         </StackPanel>

@@ -41,13 +41,13 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="工位1 - 面阵相机" Foreground="White" FontSize="14" FontWeight="Bold"/>
                         <Ellipse Width="10" Height="10" Margin="10,0,0,0"
-                                 Fill="{Binding Station1StatusColor}"/>
+                                 Fill="{Binding Station1.StatusColor}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- 图像显示 -->
                 <controls:ZoomableImageControl Grid.Row="1" Margin="10"
-                    ImageSource="{Binding Station1Image}"
+                    ImageSource="{Binding Station1.Image}"
                     ShowCrosshair="{Binding ShowCrosshair}"/>
 
                 <!-- 相机信息 -->
@@ -75,43 +75,43 @@
                             Style="{StaticResource SecondaryButtonStyle}" Width="60" HorizontalAlignment="Left"/>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="UserId:" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Station1UserId}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Station1.UserId}" Style="{StaticResource InputStyle}"/>
                     <TextBlock Grid.Row="1" Grid.Column="2" Text="序列号:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Station1SerialDisplay}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Station1.SerialDisplay}" Style="{StaticResource ValueStyle}"/>
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="名称:" Style="{StaticResource LabelStyle}"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Station1FriendlyName}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Station1.FriendlyName}" Style="{StaticResource ValueStyle}"/>
                     <TextBlock Grid.Row="2" Grid.Column="2" Text="状态:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Station1StatusText}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Station1.StatusText}" Style="{StaticResource ValueStyle}"/>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="曝光(us):" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Station1Exposure}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Station1.Exposure}" Style="{StaticResource InputStyle}"/>
                     <TextBlock Grid.Row="3" Grid.Column="2" Text="增益:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding Station1Gain}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding Station1.Gain}" Style="{StaticResource InputStyle}"/>
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="触发模式:" Style="{StaticResource LabelStyle}"/>
                     <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding TriggerModes}"
-                              SelectedItem="{Binding Station1TriggerMode}" Style="{StaticResource ComboStyle}"/>
+                              SelectedItem="{Binding Station1.TriggerMode}" Style="{StaticResource ComboStyle}"/>
                     <TextBlock Grid.Row="4" Grid.Column="2" Text="触发边沿:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
                     <ComboBox Grid.Row="4" Grid.Column="3" ItemsSource="{Binding TriggerEdges}"
-                              SelectedItem="{Binding Station1TriggerEdge}" Style="{StaticResource ComboStyle}"
-                              IsEnabled="{Binding Station1IsHardwareTrigger}"/>
+                              SelectedItem="{Binding Station1.TriggerEdge}" Style="{StaticResource ComboStyle}"
+                              IsEnabled="{Binding Station1.IsHardwareTrigger}"/>
 
                     <TextBlock Grid.Row="5" Grid.Column="0" Text="触发源:" Style="{StaticResource LabelStyle}"
-                               Visibility="{Binding Station1IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                               Visibility="{Binding Station1.IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <ComboBox Grid.Row="5" Grid.Column="1" ItemsSource="{Binding HardwareTriggerSources}"
-                              SelectedItem="{Binding Station1HardwareTriggerSource}" Style="{StaticResource ComboStyle}"
-                              Visibility="{Binding Station1IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                              SelectedItem="{Binding Station1.HardwareTriggerSource}" Style="{StaticResource ComboStyle}"
+                              Visibility="{Binding Station1.IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 </Grid>
 
                 <!-- 控制按钮 -->
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
-                    <Button Content="连接" Command="{Binding ConnectStation1Command}" Style="{StaticResource SuccessButtonStyle}"/>
-                    <Button Content="断开" Command="{Binding DisconnectStation1Command}" Style="{StaticResource DangerButtonStyle}"/>
-                    <Button Content="开始采集" Command="{Binding StartGrabStation1Command}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="停止采集" Command="{Binding StopGrabStation1Command}" Style="{StaticResource SecondaryButtonStyle}"/>
-                    <Button Content="软触发" Command="{Binding SoftTriggerStation1Command}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="应用参数" Command="{Binding ApplyStation1Command}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="连接" Command="{Binding Station1.ConnectCommand}" Style="{StaticResource SuccessButtonStyle}"/>
+                    <Button Content="断开" Command="{Binding Station1.DisconnectCommand}" Style="{StaticResource DangerButtonStyle}"/>
+                    <Button Content="开始采集" Command="{Binding Station1.StartGrabCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="停止采集" Command="{Binding Station1.StopGrabCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+                    <Button Content="软触发" Command="{Binding Station1.SoftTriggerCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="应用参数" Command="{Binding Station1.ApplyParamsCommand}" Style="{StaticResource ButtonStyle}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -132,13 +132,13 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="工位2 - 线扫相机" Foreground="White" FontSize="14" FontWeight="Bold"/>
                         <Ellipse Width="10" Height="10" Margin="10,0,0,0"
-                                 Fill="{Binding Station2StatusColor}"/>
+                                 Fill="{Binding Station2.StatusColor}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- 图像显示 -->
                 <controls:ZoomableImageControl Grid.Row="1" Margin="10"
-                    ImageSource="{Binding Station2Image}"
+                    ImageSource="{Binding Station2.Image}"
                     ShowCrosshair="{Binding ShowCrosshair}"/>
 
                 <!-- 相机信息 -->
@@ -167,38 +167,38 @@
                             Style="{StaticResource SecondaryButtonStyle}" Width="60" HorizontalAlignment="Left"/>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="UserId:" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Station2UserId}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Station2.UserId}" Style="{StaticResource InputStyle}"/>
                     <TextBlock Grid.Row="1" Grid.Column="2" Text="序列号:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Station2SerialDisplay}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Station2.SerialDisplay}" Style="{StaticResource ValueStyle}"/>
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="名称:" Style="{StaticResource LabelStyle}"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Station2FriendlyName}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Station2.FriendlyName}" Style="{StaticResource ValueStyle}"/>
                     <TextBlock Grid.Row="2" Grid.Column="2" Text="状态:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Station2StatusText}" Style="{StaticResource ValueStyle}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Station2.StatusText}" Style="{StaticResource ValueStyle}"/>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="曝光(us):" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Station2Exposure}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Station2.Exposure}" Style="{StaticResource InputStyle}"/>
                     <TextBlock Grid.Row="3" Grid.Column="2" Text="增益:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding Station2Gain}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding Station2.Gain}" Style="{StaticResource InputStyle}"/>
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="行频:" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Station2LineRate}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Station2.LineRate}" Style="{StaticResource InputStyle}"/>
                     <TextBlock Grid.Row="4" Grid.Column="2" Text="行数:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
-                    <TextBox Grid.Row="4" Grid.Column="3" Text="{Binding Station2LineCount}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="4" Grid.Column="3" Text="{Binding Station2.LineCount}" Style="{StaticResource InputStyle}"/>
 
                     <TextBlock Grid.Row="5" Grid.Column="0" Text="触发模式:" Style="{StaticResource LabelStyle}"/>
                     <ComboBox Grid.Row="5" Grid.Column="1" ItemsSource="{Binding TriggerModes}"
-                              SelectedItem="{Binding Station2TriggerMode}" Style="{StaticResource ComboStyle}"/>
+                              SelectedItem="{Binding Station2.TriggerMode}" Style="{StaticResource ComboStyle}"/>
                     <TextBlock Grid.Row="5" Grid.Column="2" Text="触发边沿:" Style="{StaticResource LabelStyle}" Margin="15,0,8,0"/>
                     <ComboBox Grid.Row="5" Grid.Column="3" ItemsSource="{Binding TriggerEdges}"
-                              SelectedItem="{Binding Station2TriggerEdge}" Style="{StaticResource ComboStyle}"
-                              IsEnabled="{Binding Station2IsHardwareTrigger}"/>
+                              SelectedItem="{Binding Station2.TriggerEdge}" Style="{StaticResource ComboStyle}"
+                              IsEnabled="{Binding Station2.IsHardwareTrigger}"/>
 
                     <TextBlock Grid.Row="6" Grid.Column="0" Text="触发源:" Style="{StaticResource LabelStyle}"
-                               Visibility="{Binding Station2IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                               Visibility="{Binding Station2.IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding HardwareTriggerSources}"
-                              SelectedItem="{Binding Station2HardwareTriggerSource}" Style="{StaticResource ComboStyle}"
-                              Visibility="{Binding Station2IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                              SelectedItem="{Binding Station2.HardwareTriggerSource}" Style="{StaticResource ComboStyle}"
+                              Visibility="{Binding Station2.IsHardwareTrigger, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 </Grid>
 
                 <!-- 瓶身旋转控制 -->
@@ -211,12 +211,12 @@
 
                 <!-- 控制按钮 -->
                 <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
-                    <Button Content="连接" Command="{Binding ConnectStation2Command}" Style="{StaticResource SuccessButtonStyle}"/>
-                    <Button Content="断开" Command="{Binding DisconnectStation2Command}" Style="{StaticResource DangerButtonStyle}"/>
-                    <Button Content="开始采集" Command="{Binding StartGrabStation2Command}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="停止采集" Command="{Binding StopGrabStation2Command}" Style="{StaticResource SecondaryButtonStyle}"/>
-                    <Button Content="软触发" Command="{Binding SoftTriggerStation2Command}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="应用参数" Command="{Binding ApplyStation2Command}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="连接" Command="{Binding Station2.ConnectCommand}" Style="{StaticResource SuccessButtonStyle}"/>
+                    <Button Content="断开" Command="{Binding Station2.DisconnectCommand}" Style="{StaticResource DangerButtonStyle}"/>
+                    <Button Content="开始采集" Command="{Binding Station2.StartGrabCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="停止采集" Command="{Binding Station2.StopGrabCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+                    <Button Content="软触发" Command="{Binding Station2.SoftTriggerCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <Button Content="应用参数" Command="{Binding Station2.ApplyParamsCommand}" Style="{StaticResource ButtonStyle}"/>
                 </StackPanel>
             </Grid>
         </Border>

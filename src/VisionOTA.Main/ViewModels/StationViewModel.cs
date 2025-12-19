@@ -302,14 +302,21 @@ namespace VisionOTA.Main.ViewModels
                 _camera.SetExposure(Exposure);
                 _camera.SetGain(Gain);
 
-                // 设置触发模式
-                var mode = TriggerMode switch
+                // 设置触发源
+                TriggerSource source;
+                switch (TriggerMode)
                 {
-                    "软件触发" => Hardware.Camera.TriggerMode.Software,
-                    "硬件触发" => Hardware.Camera.TriggerMode.Hardware,
-                    _ => Hardware.Camera.TriggerMode.Continuous
-                };
-                _camera.SetTriggerMode(mode);
+                    case "软件触发":
+                        source = TriggerSource.Software;
+                        break;
+                    case "硬件触发":
+                        source = GetTriggerSourceFromLine(HardwareTriggerSource);
+                        break;
+                    default:
+                        source = TriggerSource.Continuous;
+                        break;
+                }
+                _camera.SetTriggerSource(source);
 
                 // 线扫相机特有参数
                 if (_camera is ILineCamera lineCamera)
@@ -323,6 +330,17 @@ namespace VisionOTA.Main.ViewModels
             catch (Exception ex)
             {
                 FileLogger.Instance.Error($"工位{_stationId}应用参数失败: {ex.Message}", ex, "Camera");
+            }
+        }
+
+        private TriggerSource GetTriggerSourceFromLine(string line)
+        {
+            switch (line)
+            {
+                case "Line1": return TriggerSource.Line1;
+                case "Line2": return TriggerSource.Line2;
+                case "Line3": return TriggerSource.Line3;
+                default: return TriggerSource.Line1;
             }
         }
 
@@ -418,7 +436,7 @@ namespace VisionOTA.Main.ViewModels
 
         #endregion
 
-        public void Dispose()
+        public override void Cleanup()
         {
             if (_camera != null)
             {
@@ -427,6 +445,7 @@ namespace VisionOTA.Main.ViewModels
                 _camera.Dispose();
                 _camera = null;
             }
+            base.Cleanup();
         }
     }
 }

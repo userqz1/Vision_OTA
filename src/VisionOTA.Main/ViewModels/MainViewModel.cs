@@ -16,64 +16,29 @@ using VisionOTA.Infrastructure.Permission;
 
 namespace VisionOTA.Main.ViewModels
 {
+    /// <summary>
+    /// 主视图模型 - 使用 StationViewModel 简化重复代码
+    /// </summary>
     public class MainViewModel : ViewModelBase
     {
         private readonly IInspectionService _inspectionService;
         private readonly IStatisticsService _statisticsService;
         private readonly DispatcherTimer _timer;
 
+        #region 工位视图模型
+
+        public StationViewModel Station1 { get; }
+        public StationViewModel Station2 { get; }
+
+        #endregion
+
+        #region 系统状态
+
         private string _systemStatus = "空闲";
         private SolidColorBrush _systemStatusColor = new SolidColorBrush(Colors.Gray);
         private string _currentUser = "未登录";
         private string _statusMessage = "系统就绪";
         private DateTime _currentTime;
-
-        // 登录面板
-        private bool _isLoginPanelVisible;
-        private string _selectedUserType;
-        private string _loginPassword = string.Empty;
-        private string _loginError = string.Empty;
-        private bool _isLoggedIn;
-
-        // 用户类型列表
-        public string[] UserTypes { get; } = { "操作员", "工程师", "管理员" };
-
-        // 工位1
-        private BitmapSource _station1Image;
-        private SolidColorBrush _station1StatusColor = new SolidColorBrush(Colors.Gray);
-        private int _station1Total;
-        private int _station1Ok;
-        private int _station1Ng;
-        private double _station1Rate;
-
-        // 工位2
-        private BitmapSource _station2Image;
-        private SolidColorBrush _station2StatusColor = new SolidColorBrush(Colors.Gray);
-        private int _station2Total;
-        private int _station2Ok;
-        private int _station2Ng;
-        private double _station2Rate;
-
-        // 工位1最新结果
-        private string _station1ResultText = "--";
-        private SolidColorBrush _station1ResultBackground = new SolidColorBrush(Colors.Gray);
-        private double _station1Angle;
-
-        // 工位2最新结果
-        private string _station2ResultText = "--";
-        private SolidColorBrush _station2ResultBackground = new SolidColorBrush(Colors.Gray);
-        private double _station2Angle;
-
-        // 设备状态
-        private SolidColorBrush _plcStatusColor = new SolidColorBrush(Colors.Gray);
-        private SolidColorBrush _camera1StatusColor = new SolidColorBrush(Colors.Gray);
-        private SolidColorBrush _camera2StatusColor = new SolidColorBrush(Colors.Gray);
-        private SolidColorBrush _visionStatusColor = new SolidColorBrush(Colors.Gray);
-
-        // 辅助线显示
-        private bool _showCrosshair;
-
-        #region Properties
 
         public string SystemStatus
         {
@@ -105,6 +70,18 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _currentTime, value);
         }
 
+        #endregion
+
+        #region 登录相关
+
+        private bool _isLoginPanelVisible;
+        private string _selectedUserType;
+        private string _loginPassword = string.Empty;
+        private string _loginError = string.Empty;
+        private bool _isLoggedIn;
+
+        public string[] UserTypes { get; } = { "操作员", "工程师", "管理员" };
+
         public bool IsAdmin => PermissionService.Instance.HasPermission(PermissionLevel.Administrator);
 
         public bool IsLoggedIn
@@ -121,15 +98,6 @@ namespace VisionOTA.Main.ViewModels
         }
 
         public bool CanOperate => IsLoggedIn && PermissionService.Instance.HasPermission(PermissionLevel.Operator);
-
-        /// <summary>
-        /// 是否显示辅助线
-        /// </summary>
-        public bool ShowCrosshair
-        {
-            get => _showCrosshair;
-            set => SetProperty(ref _showCrosshair, value);
-        }
 
         public bool IsLoginPanelVisible
         {
@@ -155,119 +123,16 @@ namespace VisionOTA.Main.ViewModels
             set => SetProperty(ref _loginError, value);
         }
 
-        // 工位1
-        public BitmapSource Station1Image
-        {
-            get => _station1Image;
-            set => SetProperty(ref _station1Image, value);
-        }
+        #endregion
 
-        public SolidColorBrush Station1StatusColor
-        {
-            get => _station1StatusColor;
-            set => SetProperty(ref _station1StatusColor, value);
-        }
+        #region 设备状态
 
-        public int Station1Total
-        {
-            get => _station1Total;
-            set => SetProperty(ref _station1Total, value);
-        }
+        private SolidColorBrush _plcStatusColor = new SolidColorBrush(Colors.Gray);
+        private SolidColorBrush _camera1StatusColor = new SolidColorBrush(Colors.Gray);
+        private SolidColorBrush _camera2StatusColor = new SolidColorBrush(Colors.Gray);
+        private SolidColorBrush _visionStatusColor = new SolidColorBrush(Colors.Gray);
+        private bool _showCrosshair;
 
-        public int Station1Ok
-        {
-            get => _station1Ok;
-            set => SetProperty(ref _station1Ok, value);
-        }
-
-        public int Station1Ng
-        {
-            get => _station1Ng;
-            set => SetProperty(ref _station1Ng, value);
-        }
-
-        public double Station1Rate
-        {
-            get => _station1Rate;
-            set => SetProperty(ref _station1Rate, value);
-        }
-
-        // 工位2
-        public BitmapSource Station2Image
-        {
-            get => _station2Image;
-            set => SetProperty(ref _station2Image, value);
-        }
-
-        public SolidColorBrush Station2StatusColor
-        {
-            get => _station2StatusColor;
-            set => SetProperty(ref _station2StatusColor, value);
-        }
-
-        public int Station2Total
-        {
-            get => _station2Total;
-            set => SetProperty(ref _station2Total, value);
-        }
-
-        public int Station2Ok
-        {
-            get => _station2Ok;
-            set => SetProperty(ref _station2Ok, value);
-        }
-
-        public int Station2Ng
-        {
-            get => _station2Ng;
-            set => SetProperty(ref _station2Ng, value);
-        }
-
-        public double Station2Rate
-        {
-            get => _station2Rate;
-            set => SetProperty(ref _station2Rate, value);
-        }
-
-        // 工位1最新结果
-        public string Station1ResultText
-        {
-            get => _station1ResultText;
-            set => SetProperty(ref _station1ResultText, value);
-        }
-
-        public SolidColorBrush Station1ResultBackground
-        {
-            get => _station1ResultBackground;
-            set => SetProperty(ref _station1ResultBackground, value);
-        }
-
-        public double Station1Angle
-        {
-            get => _station1Angle;
-            set => SetProperty(ref _station1Angle, value);
-        }
-
-        // 工位2最新结果
-        public string Station2ResultText
-        {
-            get => _station2ResultText;
-            set => SetProperty(ref _station2ResultText, value);
-        }
-
-        public SolidColorBrush Station2ResultBackground
-        {
-            get => _station2ResultBackground;
-            set => SetProperty(ref _station2ResultBackground, value);
-        }
-
-        public double Station2Angle
-        {
-            get => _station2Angle;
-            set => SetProperty(ref _station2Angle, value);
-        }
-
-        // 设备状态
         public SolidColorBrush PlcStatusColor
         {
             get => _plcStatusColor;
@@ -290,6 +155,12 @@ namespace VisionOTA.Main.ViewModels
         {
             get => _visionStatusColor;
             set => SetProperty(ref _visionStatusColor, value);
+        }
+
+        public bool ShowCrosshair
+        {
+            get => _showCrosshair;
+            set => SetProperty(ref _showCrosshair, value);
         }
 
         #endregion
@@ -316,6 +187,10 @@ namespace VisionOTA.Main.ViewModels
             _statisticsService = new StatisticsService();
             _inspectionService = new InspectionService(_statisticsService);
 
+            // 创建工位视图模型（无相机控制）
+            Station1 = new StationViewModel(1, null);
+            Station2 = new StationViewModel(2, null);
+
             // 初始化命令
             StartCommand = new RelayCommand(async _ => await StartInspection(), _ => CanOperate && _inspectionService.CurrentState != SystemState.Running);
             StopCommand = new RelayCommand(async _ => await StopInspection(), _ => CanOperate && _inspectionService.CurrentState == SystemState.Running);
@@ -338,10 +213,7 @@ namespace VisionOTA.Main.ViewModels
             EventAggregator.Instance.Subscribe<ConnectionChangedEvent>(OnConnectionChanged);
 
             // 初始化定时器
-            _timer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(1)
-            };
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += (s, e) =>
             {
                 CurrentTime = DateTime.Now;
@@ -349,13 +221,14 @@ namespace VisionOTA.Main.ViewModels
             };
             _timer.Start();
 
-            // 设置当前用户状态
             UpdateLoginState();
         }
 
+        #region 登录操作
+
         private void ShowLoginPanel()
         {
-            SelectedUserType = UserTypes[0]; // 默认选中操作员
+            SelectedUserType = UserTypes[0];
             LoginPassword = string.Empty;
             LoginError = string.Empty;
             IsLoginPanelVisible = true;
@@ -381,13 +254,13 @@ namespace VisionOTA.Main.ViewModels
                 IsLoginPanelVisible = false;
                 UpdateLoginState();
                 StatusMessage = $"{CurrentUser} 已登录";
-                FileLogger.Instance.Info($"{CurrentUser} 登录成功", "Auth");
+                this.LogInfo($"{CurrentUser} 登录成功");
             }
             else
             {
                 LoginError = "密码错误";
-                LoginPassword = string.Empty; // 清空密码，触发 View 清空 PasswordBox
-                FileLogger.Instance.Warning($"{SelectedUserType} 登录失败", "Auth");
+                LoginPassword = string.Empty;
+                this.LogWarning($"{SelectedUserType} 登录失败");
             }
         }
 
@@ -399,21 +272,31 @@ namespace VisionOTA.Main.ViewModels
             LoginError = string.Empty;
         }
 
+        private void Logout()
+        {
+            var username = CurrentUser;
+            PermissionService.Instance.Logout();
+            UpdateLoginState();
+            StatusMessage = $"用户 {username} 已登出";
+            this.LogInfo($"用户 {username} 登出");
+        }
+
         private void UpdateLoginState()
         {
             var user = PermissionService.Instance.CurrentUser;
             IsLoggedIn = user != null;
             CurrentUser = user?.Username ?? "未登录";
-
-            // 刷新所有命令的CanExecute状态
             CommandManager.InvalidateRequerySuggested();
         }
+
+        #endregion
+
+        #region 检测操作
 
         public async Task InitializeAsync()
         {
             StatusMessage = "正在初始化...";
 
-            // 设备状态保持灰色直到收到实际连接事件
             PlcStatusColor = new SolidColorBrush(Colors.Gray);
             Camera1StatusColor = new SolidColorBrush(Colors.Gray);
             Camera2StatusColor = new SolidColorBrush(Colors.Gray);
@@ -421,16 +304,7 @@ namespace VisionOTA.Main.ViewModels
 
             var success = await _inspectionService.InitializeAsync();
 
-            if (success)
-            {
-                StatusMessage = "初始化完成";
-                // 设备状态由ConnectionChangedEvent事件更新，不在此处硬编码
-            }
-            else
-            {
-                StatusMessage = "初始化失败，部分功能不可用";
-            }
-
+            StatusMessage = success ? "初始化完成" : "初始化失败，部分功能不可用";
             UpdateStatistics();
         }
 
@@ -449,33 +323,25 @@ namespace VisionOTA.Main.ViewModels
             StatusMessage = "检测已停止";
         }
 
-        private void Logout()
-        {
-            var username = CurrentUser;
-            PermissionService.Instance.Logout();
-            UpdateLoginState();
-            StatusMessage = $"用户 {username} 已登出";
-            FileLogger.Instance.Info($"用户 {username} 登出", "Auth");
-        }
+        #endregion
+
+        #region 设置窗口
 
         private void OpenCameraSettings()
         {
-            var window = new Views.CameraSettingsWindow();
-            window.Owner = Application.Current.MainWindow;
+            var window = new Views.CameraSettingsWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
         }
 
         private void OpenPlcSettings()
         {
-            var window = new Views.PlcSettingsWindow();
-            window.Owner = Application.Current.MainWindow;
+            var window = new Views.PlcSettingsWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
         }
 
         private void OpenVisionSettings()
         {
-            var window = new Views.VisionMasterSettingsWindow();
-            window.Owner = Application.Current.MainWindow;
+            var window = new Views.VisionMasterSettingsWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
         }
 
@@ -486,59 +352,35 @@ namespace VisionOTA.Main.ViewModels
 
         private void OpenLog()
         {
-            var window = new Views.LogWindow();
-            window.Owner = Application.Current.MainWindow;
+            var window = new Views.LogWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
         }
 
         private void OpenUserManagement()
         {
-            var window = new Views.UserManagementWindow();
-            window.Owner = Application.Current.MainWindow;
+            var window = new Views.UserManagementWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
         }
+
+        #endregion
+
+        #region 事件处理
 
         private void OnInspectionCompleted(object sender, InspectionCompletedEventArgs e)
         {
             RunOnUIThread(() =>
             {
                 var result = e.Result;
-                var resultBackground = result.IsOk
-                    ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
-                    : new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
+                var station = result.StationId == 1 ? Station1 : Station2;
 
-                // 根据工位ID分别更新对应工位的结果
-                if (result.StationId == 1)
+                station.UpdateResult(result.IsOk, result.Angle);
+                station.StatusColor = result.IsOk
+                    ? new SolidColorBrush(Colors.LimeGreen)
+                    : new SolidColorBrush(Colors.Red);
+
+                if (result.ResultImage != null)
                 {
-                    // 更新工位1最新结果
-                    Station1ResultText = result.IsOk ? "OK" : "NG";
-                    Station1ResultBackground = resultBackground;
-                    Station1Angle = result.Angle;
-
-                    Station1StatusColor = result.IsOk
-                        ? new SolidColorBrush(Colors.LimeGreen)
-                        : new SolidColorBrush(Colors.Red);
-
-                    if (result.ResultImage != null)
-                    {
-                        Station1Image = ConvertToBitmapSource(result.ResultImage);
-                    }
-                }
-                else if (result.StationId == 2)
-                {
-                    // 更新工位2最新结果
-                    Station2ResultText = result.IsOk ? "OK" : "NG";
-                    Station2ResultBackground = resultBackground;
-                    Station2Angle = result.Angle;
-
-                    Station2StatusColor = result.IsOk
-                        ? new SolidColorBrush(Colors.LimeGreen)
-                        : new SolidColorBrush(Colors.Red);
-
-                    if (result.ResultImage != null)
-                    {
-                        Station2Image = ConvertToBitmapSource(result.ResultImage);
-                    }
+                    station.Image = ConvertToBitmapSource(result.ResultImage);
                 }
 
                 UpdateStatistics();
@@ -576,7 +418,7 @@ namespace VisionOTA.Main.ViewModels
             RunOnUIThread(() =>
             {
                 StatusMessage = error;
-                FileLogger.Instance.Error(error, "Inspection");
+                this.LogError(error);
             });
         }
 
@@ -606,6 +448,10 @@ namespace VisionOTA.Main.ViewModels
             });
         }
 
+        #endregion
+
+        #region 辅助方法
+
         private void UpdateStatistics()
         {
             var stat1 = _statisticsService.GetStationStatistics(1);
@@ -613,53 +459,54 @@ namespace VisionOTA.Main.ViewModels
 
             if (stat1 != null)
             {
-                Station1Total = stat1.TotalCount;
-                Station1Ok = stat1.OkCount;
-                Station1Ng = stat1.NgCount;
-                Station1Rate = stat1.OkRate;
+                Station1.UpdateStatistics(stat1.TotalCount, stat1.OkCount, stat1.NgCount);
             }
 
             if (stat2 != null)
             {
-                Station2Total = stat2.TotalCount;
-                Station2Ok = stat2.OkCount;
-                Station2Ng = stat2.NgCount;
-                Station2Rate = stat2.OkRate;
+                Station2.UpdateStatistics(stat2.TotalCount, stat2.OkCount, stat2.NgCount);
             }
         }
 
         private BitmapSource ConvertToBitmapSource(System.Drawing.Bitmap bitmap)
         {
-            if (bitmap == null)
+            if (bitmap == null) return null;
+
+            try
+            {
+                var bitmapData = bitmap.LockBits(
+                    new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                    System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                    bitmap.PixelFormat);
+
+                var bitmapSource = BitmapSource.Create(
+                    bitmapData.Width, bitmapData.Height,
+                    bitmap.HorizontalResolution, bitmap.VerticalResolution,
+                    PixelFormats.Bgr24, null,
+                    bitmapData.Scan0,
+                    bitmapData.Stride * bitmapData.Height,
+                    bitmapData.Stride);
+
+                bitmap.UnlockBits(bitmapData);
+                bitmapSource.Freeze();
+
+                return bitmapSource;
+            }
+            catch
+            {
                 return null;
-
-            var bitmapData = bitmap.LockBits(
-                new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                bitmap.PixelFormat);
-
-            var bitmapSource = BitmapSource.Create(
-                bitmapData.Width,
-                bitmapData.Height,
-                bitmap.HorizontalResolution,
-                bitmap.VerticalResolution,
-                PixelFormats.Bgr24,
-                null,
-                bitmapData.Scan0,
-                bitmapData.Stride * bitmapData.Height,
-                bitmapData.Stride);
-
-            bitmap.UnlockBits(bitmapData);
-            bitmapSource.Freeze();
-
-            return bitmapSource;
+            }
         }
+
+        #endregion
 
         public override void Cleanup()
         {
             _timer.Stop();
             _inspectionService?.Dispose();
             (_statisticsService as IDisposable)?.Dispose();
+            Station1?.Dispose();
+            Station2?.Dispose();
             base.Cleanup();
         }
     }
