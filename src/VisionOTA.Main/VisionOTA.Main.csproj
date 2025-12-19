@@ -154,6 +154,8 @@
     <Compile Include="Converters\LogLevelConverter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ViewModels\CameraSettingsViewModel.cs" />
+    <Compile Include="ViewModels\StationViewModel.cs" />
+    <Compile Include="ViewModels\PlcAddressViewModel.cs" />
     <Compile Include="ViewModels\LoginViewModel.cs" />
     <Compile Include="ViewModels\LogViewModel.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />

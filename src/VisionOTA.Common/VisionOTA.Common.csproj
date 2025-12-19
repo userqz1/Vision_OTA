@@ -66,6 +66,7 @@
     <Compile Include="Mvvm\ObservableObject.cs" />
     <Compile Include="Mvvm\RelayCommand.cs" />
     <Compile Include="Mvvm\ViewModelBase.cs" />
+    <Compile Include="Mvvm\CommandFactory.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
