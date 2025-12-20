@@ -3,20 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:VisionOTA.Main.Converters"
         Title="系统日志"
-        Width="800" Height="550"
+        Width="900" Height="600"
         WindowStartupLocation="CenterOwner"
         Background="#F5F3F0">
 
     <Window.Resources>
         <Style x:Key="ButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="70"/>
             <Setter Property="Background" Value="#333333"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="Padding" Value="10,0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -42,6 +43,18 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style x:Key="ComboStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="15">
@@ -52,37 +65,66 @@
         </Grid.RowDefinitions>
 
         <!-- 工具栏 -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock Text="日期:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <DatePicker SelectedDate="{Binding SelectedDate}" Width="120" VerticalAlignment="Center"/>
-            <Button Content="加载" Command="{Binding LoadCommand}" Style="{StaticResource ButtonStyle}" Margin="10,0"/>
-            <Button Content="刷新" Command="{Binding RefreshCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
-            <Separator Width="20" Background="Transparent"/>
-            <TextBlock Text="筛选:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <ComboBox SelectedItem="{Binding SelectedLevel}" Width="100" VerticalAlignment="Center">
-                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">全部</sys:String>
-                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Debug</sys:String>
-                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Info</sys:String>
-                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Warning</sys:String>
-                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Error</sys:String>
-            </ComboBox>
-            <Separator Width="20" Background="Transparent"/>
-            <CheckBox Content="实时更新" IsChecked="{Binding IsRealTimeEnabled}" VerticalAlignment="Center"/>
-        </StackPanel>
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 第一行：日期和模块选择 -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="日期:" Style="{StaticResource LabelStyle}"/>
+                <DatePicker SelectedDate="{Binding SelectedDate}" Width="120" VerticalAlignment="Center"/>
+
+                <Separator Width="15" Background="Transparent"/>
+
+                <TextBlock Text="模块:" Style="{StaticResource LabelStyle}"/>
+                <ComboBox ItemsSource="{Binding AvailableModules}"
+                          SelectedItem="{Binding SelectedModule}"
+                          Width="100" Style="{StaticResource ComboStyle}"/>
+
+                <Separator Width="15" Background="Transparent"/>
+
+                <TextBlock Text="级别:" Style="{StaticResource LabelStyle}"/>
+                <ComboBox ItemsSource="{Binding LogLevels}"
+                          SelectedItem="{Binding SelectedLevel}"
+                          Width="90" Style="{StaticResource ComboStyle}"/>
+
+                <Separator Width="15" Background="Transparent"/>
+
+                <Button Content="加载" Command="{Binding LoadCommand}" Style="{StaticResource ButtonStyle}"/>
+                <Button Content="刷新" Command="{Binding RefreshCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+            </StackPanel>
+
+            <!-- 第二行：实时更新和打开文件夹 -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal">
+                <CheckBox Content="实时更新" IsChecked="{Binding IsRealTimeEnabled}"
+                          VerticalAlignment="Center" Margin="0,0,20,0"/>
+                <Button Content="打开日志文件夹" Command="{Binding OpenFolderCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}" MinWidth="110"/>
+            </StackPanel>
+        </Grid>
 
         <!-- 日志列表 -->
         <Border Grid.Row="1" Background="White" BorderBrush="#CCCCCC" BorderThickness="1">
             <ListBox ItemsSource="{Binding LogEntries}"
                      SelectedItem="{Binding SelectedEntry}"
-                     FontFamily="Consolas" FontSize="12"
+                     FontFamily="Consolas" FontSize="11"
                      HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     VirtualizingStackPanel.VirtualizationMode="Recycling">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding}" Padding="5,2">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Converter={x:Static local:LogLevelConverter.Instance}}" Value="Fatal">
+                                            <Setter Property="Foreground" Value="#B71C1C"/>
+                                            <Setter Property="Background" Value="#FFCDD2"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding Converter={x:Static local:LogLevelConverter.Instance}}" Value="Error">
                                             <Setter Property="Foreground" Value="#C62828"/>
                                             <Setter Property="Background" Value="#FFEBEE"/>
@@ -107,10 +149,18 @@
         </Border>
 
         <!-- 底部状态 -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#666666"/>
-            <TextBlock Text=" | " Foreground="#CCCCCC"/>
-            <TextBlock Text="{Binding LogCount, StringFormat='共 {0} 条'}" Foreground="#666666"/>
-        </StackPanel>
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#666666"/>
+            </StackPanel>
+
+            <TextBlock Grid.Column="1" Text="{Binding LogCount, StringFormat='共 {0} 条'}"
+                       Foreground="#666666" HorizontalAlignment="Right"/>
+        </Grid>
     </Grid>
 </Window>

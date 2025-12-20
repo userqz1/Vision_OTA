@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft.Win32;
 using VisionOTA.Common.Mvvm;
 using VisionOTA.Hardware.Camera;
 using VisionOTA.Infrastructure.Logging;
@@ -191,14 +193,20 @@ namespace VisionOTA.Main.ViewModels
 
         #endregion
 
+        #region 按钮文字
+
+        public string ConnectionButtonText => IsConnected ? "断开" : "连接";
+        public string GrabButtonText => IsGrabbing ? "停止采集" : "开始采集";
+
+        #endregion
+
         #region 命令
 
-        public ICommand ConnectCommand { get; }
-        public ICommand DisconnectCommand { get; }
-        public ICommand StartGrabCommand { get; }
-        public ICommand StopGrabCommand { get; }
+        public ICommand ToggleConnectionCommand { get; }
+        public ICommand ToggleGrabCommand { get; }
         public ICommand SoftTriggerCommand { get; }
         public ICommand ApplyParamsCommand { get; }
+        public ICommand SaveImageCommand { get; }
 
         #endregion
 
@@ -213,12 +221,27 @@ namespace VisionOTA.Main.ViewModels
             _stationId = stationId;
             _cameraFactory = cameraFactory;
 
-            ConnectCommand = new RelayCommand(_ => Connect(), _ => !IsConnected);
-            DisconnectCommand = new RelayCommand(_ => Disconnect(), _ => IsConnected);
-            StartGrabCommand = new RelayCommand(_ => StartGrab(), _ => IsConnected && !IsGrabbing);
-            StopGrabCommand = new RelayCommand(_ => StopGrab(), _ => IsGrabbing);
+            ToggleConnectionCommand = new RelayCommand(_ => ToggleConnection());
+            ToggleGrabCommand = new RelayCommand(_ => ToggleGrab(), _ => IsConnected);
             SoftTriggerCommand = new RelayCommand(_ => SoftTrigger(), _ => IsConnected);
             ApplyParamsCommand = new RelayCommand(_ => ApplyParams(), _ => IsConnected);
+            SaveImageCommand = new RelayCommand(_ => SaveImage(), _ => Image != null);
+        }
+
+        private void ToggleConnection()
+        {
+            if (IsConnected)
+                Disconnect();
+            else
+                Connect();
+        }
+
+        private void ToggleGrab()
+        {
+            if (IsGrabbing)
+                StopGrab();
+            else
+                StartGrab();
         }
 
         #region 相机操作
@@ -369,12 +392,13 @@ namespace VisionOTA.Main.ViewModels
         {
             OnPropertyChanged(nameof(IsConnected));
             OnPropertyChanged(nameof(IsGrabbing));
-            (ConnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (DisconnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (StartGrabCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (StopGrabCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(ConnectionButtonText));
+            OnPropertyChanged(nameof(GrabButtonText));
+            (ToggleConnectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ToggleGrabCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SoftTriggerCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ApplyParamsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (SaveImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
         #endregion
@@ -396,6 +420,54 @@ namespace VisionOTA.Main.ViewModels
                 ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
                 : new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
             Angle = angle;
+        }
+
+        private void SaveImage()
+        {
+            if (Image == null) return;
+
+            try
+            {
+                var dialog = new SaveFileDialog
+                {
+                    Title = $"保存工位{_stationId}图像",
+                    Filter = "PNG图像|*.png|JPEG图像|*.jpg|BMP图像|*.bmp",
+                    FilterIndex = 1,
+                    FileName = $"Station{_stationId}_{DateTime.Now:yyyyMMdd_HHmmss}"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    BitmapEncoder encoder;
+                    var ext = Path.GetExtension(dialog.FileName).ToLower();
+                    switch (ext)
+                    {
+                        case ".jpg":
+                        case ".jpeg":
+                            encoder = new JpegBitmapEncoder { QualityLevel = 95 };
+                            break;
+                        case ".bmp":
+                            encoder = new BmpBitmapEncoder();
+                            break;
+                        default:
+                            encoder = new PngBitmapEncoder();
+                            break;
+                    }
+
+                    encoder.Frames.Add(BitmapFrame.Create(Image));
+
+                    using (var stream = new FileStream(dialog.FileName, FileMode.Create))
+                    {
+                        encoder.Save(stream);
+                    }
+
+                    FileLogger.Instance.Info($"工位{_stationId}图像已保存: {dialog.FileName}", "Camera");
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{_stationId}保存图像失败: {ex.Message}", ex, "Camera");
+            }
         }
 
         #endregion

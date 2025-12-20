@@ -175,6 +175,14 @@ namespace VisionOTA.Core.Services
                         visionConfig.VisionMaster.SolutionPath,
                         visionConfig.VisionMaster.Password ?? "");
 
+                    // 发布Vision状态事件
+                    EventAggregator.Instance.Publish(new ConnectionChangedEvent
+                    {
+                        DeviceType = "Vision",
+                        DeviceName = "VisionMaster",
+                        IsConnected = solutionLoaded
+                    });
+
                     if (!solutionLoaded)
                     {
                         FileLogger.Instance.Warning("VisionMaster方案加载失败，将使用模拟处理器", "Inspection");

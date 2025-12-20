@@ -1,11 +1,13 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using VM.Core;
 using VM.PlatformSDKCS;
 using GlobalVariableModuleCs;
+using VisionOTA.Common.Events;
 using VisionOTA.Infrastructure.Config;
 using VisionOTA.Infrastructure.Logging;
 using VisionOTA.Hardware.Plc;
@@ -31,7 +33,7 @@ namespace VisionOTA.Main.Views
             InitializeComponent();
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -44,7 +46,7 @@ namespace VisionOTA.Main.Views
                 else if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
                 {
                     // 方案未加载，尝试加载
-                    LoadSolution(DEFAULT_SOLUTION_PATH);
+                    await LoadSolutionAsync(DEFAULT_SOLUTION_PATH);
                 }
                 else
                 {
@@ -87,6 +89,14 @@ namespace VisionOTA.Main.Views
                 }
 
                 FileLogger.Instance.Info("算法设置窗口使用已加载的方案", "VisionMaster");
+
+                // 发布Vision状态事件（确保主界面状态灯正确）
+                EventAggregator.Instance.Publish(new ConnectionChangedEvent
+                {
+                    DeviceType = "Vision",
+                    DeviceName = "VisionMaster",
+                    IsConnected = true
+                });
             }
             catch (Exception ex)
             {
@@ -94,7 +104,7 @@ namespace VisionOTA.Main.Views
                 // 如果获取失败，尝试重新加载
                 if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
                 {
-                    LoadSolution(DEFAULT_SOLUTION_PATH);
+                    _ = LoadSolutionAsync(DEFAULT_SOLUTION_PATH);
                 }
             }
         }
@@ -107,7 +117,7 @@ namespace VisionOTA.Main.Views
         /// <summary>
         /// 加载方案按钮点击
         /// </summary>
-        private void BtnLoadSolution_Click(object sender, RoutedEventArgs e)
+        private async void BtnLoadSolution_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
             {
@@ -118,36 +128,65 @@ namespace VisionOTA.Main.Views
 
             if (dialog.ShowDialog() == true)
             {
-                LoadSolution(dialog.FileName);
+                await LoadSolutionAsync(dialog.FileName);
             }
         }
 
         /// <summary>
-        /// 加载方案
+        /// 异步加载方案
         /// </summary>
-        private void LoadSolution(string solutionPath)
+        private async System.Threading.Tasks.Task LoadSolutionAsync(string solutionPath)
         {
             try
             {
                 ShowMessage("正在加载方案...", false);
-                this.IsEnabled = false;
+                btnLoadSolution.IsEnabled = false;
+                Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
 
-                // 如果已加载方案，先关闭
-                if (_isSolutionLoaded)
+                // 使用超时机制加载方案
+                var loadTask = System.Threading.Tasks.Task.Run(() =>
                 {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                    // 如果已加载方案，先关闭
                     try
                     {
-                        VmSolution.Instance?.CloseSolution();
+                        if (VmSolution.Instance != null)
+                        {
+                            FileLogger.Instance.Info("正在关闭旧方案...", "VisionMaster");
+                            VmSolution.Instance.CloseSolution();
+                            FileLogger.Instance.Info($"旧方案已关闭，耗时: {sw.ElapsedMilliseconds}ms", "VisionMaster");
+                        }
                     }
-                    catch { }
-                    _isSolutionLoaded = false;
+                    catch (Exception ex)
+                    {
+                        FileLogger.Instance.Warning($"关闭旧方案时出错: {ex.Message}", "VisionMaster");
+                    }
+
+                    // 加载新方案
+                    sw.Restart();
+                    FileLogger.Instance.Info($"开始加载新方案: {solutionPath}", "VisionMaster");
+                    VmSolution.Load(solutionPath);
+                    FileLogger.Instance.Info($"VmSolution.Load完成，耗时: {sw.ElapsedMilliseconds}ms", "VisionMaster");
+                });
+
+                // 等待加载，超时60秒
+                if (await System.Threading.Tasks.Task.WhenAny(loadTask, System.Threading.Tasks.Task.Delay(60000)) != loadTask)
+                {
+                    throw new TimeoutException("加载方案超时（60秒），请检查VisionMaster服务是否正常运行");
                 }
 
-                // 加载新方案
-                VmSolution.Load(solutionPath);
+                // 检查是否有异常
+                await loadTask;
+                FileLogger.Instance.Info("Task.Run 完成，开始处理结果", "VisionMaster");
+
                 _isSolutionLoaded = true;
 
-                txtSolutionPath.Text = System.IO.Path.GetFileName(solutionPath);
+                // UI更新必须在Dispatcher中执行
+                Dispatcher.Invoke(() =>
+                {
+                    txtSolutionPath.Text = System.IO.Path.GetFileName(solutionPath);
+                });
 
                 // 列出所有流程名称
                 var processInfoList = VmSolution.Instance.GetAllProcedureList();
@@ -162,9 +201,6 @@ namespace VisionOTA.Main.Views
                 _station1Procedure = VmSolution.Instance[STATION1_NAME] as VmProcedure;
                 _station2Procedure = VmSolution.Instance[STATION2_NAME] as VmProcedure;
 
-                // VmMainViewConfigControl 会自动显示加载的方案流程图
-                // 不需要手动绑定，加载方案后控件会自动刷新
-
                 bool station1Ok = _station1Procedure != null;
                 bool station2Ok = _station2Procedure != null;
 
@@ -173,18 +209,22 @@ namespace VisionOTA.Main.Views
                 if (station2Ok)
                     FileLogger.Instance.Info($"已找到流程: {STATION2_NAME}", "VisionMaster");
 
-                if (station1Ok && station2Ok)
-                {
-                    UpdateStatus(true, "方案已加载");
-                    ShowMessage($"方案加载成功，包含 {processInfoList.nNum} 个流程", false);
-                }
-                else
-                {
-                    UpdateStatus(true, "方案已加载");
-                    ShowMessage($"方案加载成功，流程数: {processInfoList.nNum}", false);
-                }
+                // 更新状态
+                int processCount = (int)processInfoList.nNum;
+                FileLogger.Instance.Info($"准备更新UI状态，流程数: {processCount}", "VisionMaster");
+
+                UpdateStatus(true, "方案已加载");
+                ShowMessage($"方案加载成功，包含 {processCount} 个流程", false);
 
                 FileLogger.Instance.Info($"VisionMaster方案已加载: {solutionPath}", "VisionMaster");
+
+                // 发布Vision状态事件
+                EventAggregator.Instance.Publish(new ConnectionChangedEvent
+                {
+                    DeviceType = "Vision",
+                    DeviceName = "VisionMaster",
+                    IsConnected = true
+                });
 
                 // 加载方案后设置旋转角度
                 SetRotationAngleFromPlc();
@@ -203,7 +243,14 @@ namespace VisionOTA.Main.Views
             }
             finally
             {
-                this.IsEnabled = true;
+                // 等待一下让BeginInvoke的委托有机会执行
+                await System.Threading.Tasks.Task.Delay(50);
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    btnLoadSolution.IsEnabled = true;
+                    Mouse.OverrideCursor = null;
+                }));
             }
         }
 
@@ -298,10 +345,14 @@ namespace VisionOTA.Main.Views
         /// </summary>
         private void UpdateStatus(bool isConnected, string message)
         {
-            statusIndicator.Fill = isConnected
-                ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
-                : new SolidColorBrush(Color.FromRgb(0xBD, 0xBD, 0xBD));
-            txtStatus.Text = message;
+            FileLogger.Instance.Debug($"UpdateStatus调用: {message}, 已连接: {isConnected}", "VisionMaster");
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                statusIndicator.Fill = isConnected
+                    ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
+                    : new SolidColorBrush(Color.FromRgb(0xBD, 0xBD, 0xBD));
+                txtStatus.Text = message;
+            }));
         }
 
         /// <summary>
@@ -309,10 +360,15 @@ namespace VisionOTA.Main.Views
         /// </summary>
         private void ShowMessage(string message, bool isError)
         {
-            txtMessage.Text = message;
-            txtMessage.Foreground = isError
-                ? new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28))
-                : new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
+            FileLogger.Instance.Debug($"ShowMessage调用: {message}", "VisionMaster");
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                txtMessage.Text = message;
+                txtMessage.Foreground = isError
+                    ? new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28))
+                    : new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
+                FileLogger.Instance.Debug($"ShowMessage已更新UI: {message}", "VisionMaster");
+            }));
         }
 
         /// <summary>

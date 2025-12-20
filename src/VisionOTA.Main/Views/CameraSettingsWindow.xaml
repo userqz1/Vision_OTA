@@ -106,12 +106,24 @@
 
                 <!-- 控制按钮 -->
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
-                    <Button Content="连接" Command="{Binding Station1.ConnectCommand}" Style="{StaticResource SuccessButtonStyle}"/>
-                    <Button Content="断开" Command="{Binding Station1.DisconnectCommand}" Style="{StaticResource DangerButtonStyle}"/>
-                    <Button Content="开始采集" Command="{Binding Station1.StartGrabCommand}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="停止采集" Command="{Binding Station1.StopGrabCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
-                    <Button Content="软触发" Command="{Binding Station1.SoftTriggerCommand}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="应用参数" Command="{Binding Station1.ApplyParamsCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <!-- 连接控制 -->
+                    <Button Content="{Binding Station1.ConnectionButtonText}"
+                            Command="{Binding Station1.ToggleConnectionCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="60"/>
+
+                    <Rectangle Width="1" Fill="#CCCCCC" Margin="8,2"/>
+
+                    <!-- 采集控制 -->
+                    <Button Content="{Binding Station1.GrabButtonText}"
+                            Command="{Binding Station1.ToggleGrabCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="70"/>
+                    <Button Content="软触发" Command="{Binding Station1.SoftTriggerCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+
+                    <Rectangle Width="1" Fill="#CCCCCC" Margin="8,2"/>
+
+                    <!-- 工具 -->
+                    <Button Content="应用参数" Command="{Binding Station1.ApplyParamsCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+                    <Button Content="保存图片" Command="{Binding Station1.SaveImageCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -211,12 +223,24 @@
 
                 <!-- 控制按钮 -->
                 <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
-                    <Button Content="连接" Command="{Binding Station2.ConnectCommand}" Style="{StaticResource SuccessButtonStyle}"/>
-                    <Button Content="断开" Command="{Binding Station2.DisconnectCommand}" Style="{StaticResource DangerButtonStyle}"/>
-                    <Button Content="开始采集" Command="{Binding Station2.StartGrabCommand}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="停止采集" Command="{Binding Station2.StopGrabCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
-                    <Button Content="软触发" Command="{Binding Station2.SoftTriggerCommand}" Style="{StaticResource ButtonStyle}"/>
-                    <Button Content="应用参数" Command="{Binding Station2.ApplyParamsCommand}" Style="{StaticResource ButtonStyle}"/>
+                    <!-- 连接控制 -->
+                    <Button Content="{Binding Station2.ConnectionButtonText}"
+                            Command="{Binding Station2.ToggleConnectionCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="60"/>
+
+                    <Rectangle Width="1" Fill="#CCCCCC" Margin="8,2"/>
+
+                    <!-- 采集控制 -->
+                    <Button Content="{Binding Station2.GrabButtonText}"
+                            Command="{Binding Station2.ToggleGrabCommand}"
+                            Style="{StaticResource ButtonStyle}" MinWidth="70"/>
+                    <Button Content="软触发" Command="{Binding Station2.SoftTriggerCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+
+                    <Rectangle Width="1" Fill="#CCCCCC" Margin="8,2"/>
+
+                    <!-- 工具 -->
+                    <Button Content="应用参数" Command="{Binding Station2.ApplyParamsCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+                    <Button Content="保存图片" Command="{Binding Station2.SaveImageCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
                 </StackPanel>
             </Grid>
         </Border>
