@@ -226,8 +226,8 @@ namespace VisionOTA.Main.Views
                     IsConnected = true
                 });
 
-                // 加载方案后设置旋转角度
-                SetRotationAngleFromPlc();
+                // 加载方案后设置旋转角度（后台执行，不阻塞UI）
+                _ = SetRotationAngleFromPlcAsync();
             }
             catch (VmException ex)
             {
@@ -257,7 +257,7 @@ namespace VisionOTA.Main.Views
         /// <summary>
         /// 执行一次按钮点击
         /// </summary>
-        private void BtnExecuteOnce_Click(object sender, RoutedEventArgs e)
+        private async void BtnExecuteOnce_Click(object sender, RoutedEventArgs e)
         {
             if (!_isSolutionLoaded)
             {
@@ -281,7 +281,7 @@ namespace VisionOTA.Main.Views
                 if (_station2Procedure != null)
                 {
                     // 执行瓶身工位前设置旋转角度
-                    SetRotationAngleFromPlc();
+                    await SetRotationAngleFromPlcAsync();
 
                     var startTime = DateTime.Now;
                     _station2Procedure.Run();
@@ -372,51 +372,61 @@ namespace VisionOTA.Main.Views
         }
 
         /// <summary>
-        /// 从PLC读取旋转角度并设置到VisionMaster全局变量
+        /// 从PLC读取旋转角度并设置到VisionMaster全局变量（异步版本）
         /// </summary>
-        private void SetRotationAngleFromPlc()
+        private async System.Threading.Tasks.Task SetRotationAngleFromPlcAsync()
         {
-            try
+            await System.Threading.Tasks.Task.Run(async () =>
             {
-                var plcConfig = ConfigManager.Instance.Plc;
-                var rotationAngleConfig = plcConfig.InputAddresses.RotationAngle;
-                if (rotationAngleConfig == null || string.IsNullOrEmpty(rotationAngleConfig.Address))
+                try
                 {
-                    FileLogger.Instance.Warning("旋转角度地址未配置", "VisionMaster");
-                    return;
-                }
-
-                // 创建临时PLC连接读取旋转角度
-                using (var plc = new OmronFinsCommunication(plcConfig.Connection.IP, plcConfig.Connection.Port))
-                {
-                    var connected = plc.ConnectAsync().Result;
-                    if (!connected)
+                    var plcConfig = ConfigManager.Instance.Plc;
+                    var rotationAngleConfig = plcConfig.InputAddresses.RotationAngle;
+                    if (rotationAngleConfig == null || string.IsNullOrEmpty(rotationAngleConfig.Address))
                     {
-                        FileLogger.Instance.Warning("无法连接PLC读取旋转角度", "VisionMaster");
+                        FileLogger.Instance.Warning("旋转角度地址未配置，跳过", "VisionMaster");
                         return;
                     }
 
-                    var rotationAngle = plc.ReadFloatAsync(rotationAngleConfig.Address).Result;
-                    FileLogger.Instance.Info($"从PLC读取旋转角度: {rotationAngle:F2}", "VisionMaster");
+                    using (var plc = new OmronFinsCommunication(plcConfig.Connection.IP, plcConfig.Connection.Port))
+                    {
+                        // 添加连接超时（3秒）
+                        var connectTask = plc.ConnectAsync();
+                        if (await System.Threading.Tasks.Task.WhenAny(connectTask, System.Threading.Tasks.Task.Delay(3000)) != connectTask)
+                        {
+                            FileLogger.Instance.Warning("PLC连接超时(3秒)，跳过旋转角度设置", "VisionMaster");
+                            return;
+                        }
 
-                    // 设置到全局变量
-                    var globalVar = VmSolution.Instance["全局变量1"] as GlobalVariableModuleTool;
-                    if (globalVar != null)
-                    {
-                        globalVar.SetGlobalVar("旋转角度", rotationAngle.ToString("F2"));
-                        string readBack = globalVar.GetGlobalVar("旋转角度");
-                        FileLogger.Instance.Info($"设置全局变量: 旋转角度={rotationAngle:F2}, 读回={readBack}", "VisionMaster");
-                    }
-                    else
-                    {
-                        FileLogger.Instance.Warning("未找到全局变量模块 '全局变量1'", "VisionMaster");
+                        var connected = await connectTask;
+                        if (!connected)
+                        {
+                            FileLogger.Instance.Warning("无法连接PLC读取旋转角度", "VisionMaster");
+                            return;
+                        }
+
+                        var rotationAngle = await plc.ReadFloatAsync(rotationAngleConfig.Address);
+                        FileLogger.Instance.Info($"从PLC读取旋转角度: {rotationAngle:F2}", "VisionMaster");
+
+                        // 设置到全局变量
+                        var globalVar = VmSolution.Instance["全局变量1"] as GlobalVariableModuleTool;
+                        if (globalVar != null)
+                        {
+                            globalVar.SetGlobalVar("旋转角度", rotationAngle.ToString("F2"));
+                            string readBack = globalVar.GetGlobalVar("旋转角度");
+                            FileLogger.Instance.Info($"设置全局变量: 旋转角度={rotationAngle:F2}, 读回={readBack}", "VisionMaster");
+                        }
+                        else
+                        {
+                            FileLogger.Instance.Warning("未找到全局变量模块 '全局变量1'", "VisionMaster");
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Warning($"设置旋转角度失败: {ex.Message}", "VisionMaster");
-            }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Warning($"设置旋转角度失败: {ex.Message}", "VisionMaster");
+                }
+            });
         }
     }
 }
