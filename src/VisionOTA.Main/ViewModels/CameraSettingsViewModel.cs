@@ -92,19 +92,12 @@ namespace VisionOTA.Main.ViewModels
 
         public string BottleRotationButtonText => _isBottleRotating ? "停止旋转" : "旋转瓶身";
 
-        public List<string> TriggerModes { get; } = new List<string>
+        /// <summary>
+        /// 触发源选项：连续采集、软件触发、Line0-Line3
+        /// </summary>
+        public List<string> TriggerSources { get; } = new List<string>
         {
-            "连续采集", "软件触发", "硬件触发"
-        };
-
-        public List<string> HardwareTriggerSources { get; } = new List<string>
-        {
-            "Line1", "Line2", "Line3"
-        };
-
-        public List<string> TriggerEdges { get; } = new List<string>
-        {
-            "上升沿", "下降沿"
+            "连续采集", "软件触发", "Line0", "Line1", "Line2", "Line3"
         };
 
         #endregion
@@ -226,7 +219,7 @@ namespace VisionOTA.Main.ViewModels
             Station1.UserId = config.Station1.UserId ?? "";
             Station1.Exposure = config.Station1.Exposure;
             Station1.Gain = config.Station1.Gain;
-            LoadTriggerConfig(config.Station1.TriggerSource, config.Station1.TriggerEdge, Station1);
+            Station1.TriggerSource = ConvertConfigToTriggerSource(config.Station1.TriggerSource);
 
             // 工位2
             Station2.UserId = config.Station2.UserId ?? "";
@@ -234,59 +227,38 @@ namespace VisionOTA.Main.ViewModels
             Station2.Gain = config.Station2.Gain;
             Station2.LineRate = config.Station2.LineRate;
             Station2.LineCount = config.Station2.LineCount;
-            LoadTriggerConfig(config.Station2.TriggerSource, config.Station2.TriggerEdge, Station2);
+            Station2.TriggerSource = ConvertConfigToTriggerSource(config.Station2.TriggerSource);
         }
 
-        private void LoadTriggerConfig(string triggerSource, string triggerEdge, StationViewModel station)
+        /// <summary>
+        /// 将配置文件中的触发源值转换为界面显示值
+        /// </summary>
+        private string ConvertConfigToTriggerSource(string configValue)
         {
-            switch (triggerSource)
+            switch (configValue)
             {
-                case "Software":
-                    station.TriggerMode = "软件触发";
-                    station.HardwareTriggerSource = "Line1";
-                    break;
-                case "Line1":
-                case "Line2":
-                case "Line3":
-                    station.TriggerMode = "硬件触发";
-                    station.HardwareTriggerSource = triggerSource;
-                    break;
-                default:
-                    station.TriggerMode = "连续采集";
-                    station.HardwareTriggerSource = "Line1";
-                    break;
+                case "Software": return "软件触发";
+                case "Line0": return "Line0";
+                case "Line1": return "Line1";
+                case "Line2": return "Line2";
+                case "Line3": return "Line3";
+                default: return "连续采集";
             }
-
-            station.TriggerEdge = ConvertTriggerEdgeToDisplay(triggerEdge);
         }
 
-        private string GetTriggerSourceFromMode(StationViewModel station)
+        /// <summary>
+        /// 将界面触发源值转换为配置文件值
+        /// </summary>
+        private string ConvertTriggerSourceToConfig(string displayValue)
         {
-            switch (station.TriggerMode)
+            switch (displayValue)
             {
                 case "软件触发": return "Software";
-                case "硬件触发": return station.HardwareTriggerSource;
+                case "Line0": return "Line0";
+                case "Line1": return "Line1";
+                case "Line2": return "Line2";
+                case "Line3": return "Line3";
                 default: return "Continuous";
-            }
-        }
-
-        private string ConvertTriggerEdgeToDisplay(string edge)
-        {
-            switch (edge)
-            {
-                case "FallingEdge": return "下降沿";
-                case "DoubleEdge": return "双边沿";
-                default: return "上升沿";
-            }
-        }
-
-        private string ConvertTriggerEdgeToConfig(string display)
-        {
-            switch (display)
-            {
-                case "下降沿": return "FallingEdge";
-                case "双边沿": return "DoubleEdge";
-                default: return "RisingEdge";
             }
         }
 
@@ -299,16 +271,14 @@ namespace VisionOTA.Main.ViewModels
                 config.Station1.UserId = Station1.UserId;
                 config.Station1.Exposure = Station1.Exposure;
                 config.Station1.Gain = Station1.Gain;
-                config.Station1.TriggerSource = GetTriggerSourceFromMode(Station1);
-                config.Station1.TriggerEdge = ConvertTriggerEdgeToConfig(Station1.TriggerEdge);
+                config.Station1.TriggerSource = ConvertTriggerSourceToConfig(Station1.TriggerSource);
 
                 config.Station2.UserId = Station2.UserId;
                 config.Station2.Exposure = Station2.Exposure;
                 config.Station2.Gain = Station2.Gain;
                 config.Station2.LineRate = Station2.LineRate;
                 config.Station2.LineCount = Station2.LineCount;
-                config.Station2.TriggerSource = GetTriggerSourceFromMode(Station2);
-                config.Station2.TriggerEdge = ConvertTriggerEdgeToConfig(Station2.TriggerEdge);
+                config.Station2.TriggerSource = ConvertTriggerSourceToConfig(Station2.TriggerSource);
 
                 ConfigManager.Instance.SaveCameraConfig();
 

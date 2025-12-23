@@ -27,11 +27,13 @@ namespace VisionOTA.Main.ViewModels
         private string _statusText = "未连接";
         private int _exposure;
         private double _gain;
-        private string _triggerMode = "连续采集";
-        private string _triggerEdge = "上升沿";
-        private string _hardwareTriggerSource = "Line1";
+        private string _triggerSource = "连续采集";
         private BitmapSource _image;
         private SolidColorBrush _statusColor = new SolidColorBrush(Colors.Gray);
+
+        // 软触发定时器
+        private System.Timers.Timer _softTriggerTimer;
+        private const int SOFT_TRIGGER_INTERVAL_MS = 100; // 软触发间隔100ms
 
         // 线扫相机特有参数
         private int _lineRate = 10000;
@@ -84,40 +86,43 @@ namespace VisionOTA.Main.ViewModels
         public int Exposure
         {
             get => _exposure;
-            set => SetProperty(ref _exposure, value);
+            set
+            {
+                if (SetProperty(ref _exposure, value))
+                    ApplyExposure();
+            }
         }
 
         public double Gain
         {
             get => _gain;
-            set => SetProperty(ref _gain, value);
-        }
-
-        public string TriggerMode
-        {
-            get => _triggerMode;
             set
             {
-                if (SetProperty(ref _triggerMode, value))
+                if (SetProperty(ref _gain, value))
+                    ApplyGain();
+            }
+        }
+
+        /// <summary>
+        /// 触发源：连续采集、软件触发、Line0、Line1、Line2、Line3
+        /// </summary>
+        public string TriggerSource
+        {
+            get => _triggerSource;
+            set
+            {
+                if (SetProperty(ref _triggerSource, value))
                 {
-                    OnPropertyChanged(nameof(IsHardwareTrigger));
+                    OnPropertyChanged(nameof(IsSoftwareTrigger));
+                    ApplyTriggerSource();
                 }
             }
         }
 
-        public string TriggerEdge
-        {
-            get => _triggerEdge;
-            set => SetProperty(ref _triggerEdge, value);
-        }
-
-        public string HardwareTriggerSource
-        {
-            get => _hardwareTriggerSource;
-            set => SetProperty(ref _hardwareTriggerSource, value);
-        }
-
-        public bool IsHardwareTrigger => TriggerMode == "硬件触发";
+        /// <summary>
+        /// 是否为软件触发模式
+        /// </summary>
+        public bool IsSoftwareTrigger => TriggerSource == "软件触发";
 
         public BitmapSource Image
         {
@@ -138,13 +143,21 @@ namespace VisionOTA.Main.ViewModels
         public int LineRate
         {
             get => _lineRate;
-            set => SetProperty(ref _lineRate, value);
+            set
+            {
+                if (SetProperty(ref _lineRate, value))
+                    ApplyLineRate();
+            }
         }
 
         public int LineCount
         {
             get => _lineCount;
-            set => SetProperty(ref _lineCount, value);
+            set
+            {
+                if (SetProperty(ref _lineCount, value))
+                    ApplyLineCount();
+            }
         }
 
         // 统计属性
@@ -204,8 +217,6 @@ namespace VisionOTA.Main.ViewModels
 
         public ICommand ToggleConnectionCommand { get; }
         public ICommand ToggleGrabCommand { get; }
-        public ICommand SoftTriggerCommand { get; }
-        public ICommand ApplyParamsCommand { get; }
         public ICommand SaveImageCommand { get; }
 
         #endregion
@@ -223,8 +234,6 @@ namespace VisionOTA.Main.ViewModels
 
             ToggleConnectionCommand = new RelayCommand(_ => ToggleConnection());
             ToggleGrabCommand = new RelayCommand(_ => ToggleGrab(), _ => IsConnected);
-            SoftTriggerCommand = new RelayCommand(_ => SoftTrigger(), _ => IsConnected);
-            ApplyParamsCommand = new RelayCommand(_ => ApplyParams(), _ => IsConnected);
             SaveImageCommand = new RelayCommand(_ => SaveImage(), _ => Image != null);
         }
 
@@ -301,69 +310,160 @@ namespace VisionOTA.Main.ViewModels
 
         public void StartGrab()
         {
-            _camera?.StartGrab();
+            FileLogger.Instance.Info($"工位{_stationId} StartGrab被调用, _camera={(_camera == null ? "null" : "有效")}", "Camera");
+
+            if (_camera != null)
+            {
+                FileLogger.Instance.Info($"工位{_stationId} 调用相机StartGrab, IsConnected={_camera.IsConnected}", "Camera");
+                var result = _camera.StartGrab();
+                FileLogger.Instance.Info($"工位{_stationId} 相机StartGrab返回: {result}", "Camera");
+            }
+
+            // 软件触发模式下，启动定时器循环触发
+            if (IsSoftwareTrigger)
+            {
+                StartSoftTriggerTimer();
+            }
+
             RefreshCommands();
         }
 
         public void StopGrab()
         {
+            // 停止软触发定时器
+            StopSoftTriggerTimer();
+
             _camera?.StopGrab();
             RefreshCommands();
         }
 
-        public void SoftTrigger()
+        /// <summary>
+        /// 启动软触发定时器
+        /// </summary>
+        private void StartSoftTriggerTimer()
+        {
+            if (_softTriggerTimer == null)
+            {
+                _softTriggerTimer = new System.Timers.Timer(SOFT_TRIGGER_INTERVAL_MS);
+                _softTriggerTimer.Elapsed += (s, e) => SoftTrigger();
+                _softTriggerTimer.AutoReset = true;
+            }
+            _softTriggerTimer.Start();
+            FileLogger.Instance.Info($"工位{_stationId}启动软触发循环，间隔{SOFT_TRIGGER_INTERVAL_MS}ms", "Camera");
+        }
+
+        /// <summary>
+        /// 停止软触发定时器
+        /// </summary>
+        private void StopSoftTriggerTimer()
+        {
+            if (_softTriggerTimer != null)
+            {
+                _softTriggerTimer.Stop();
+                FileLogger.Instance.Info($"工位{_stationId}停止软触发循环", "Camera");
+            }
+        }
+
+        private void SoftTrigger()
         {
             _camera?.SoftTrigger();
         }
 
-        public void ApplyParams()
-        {
-            if (_camera == null) return;
+        #region 参数自动应用
 
+        private void ApplyExposure()
+        {
+            if (_camera == null || !IsConnected) return;
             try
             {
                 _camera.SetExposure(Exposure);
-                _camera.SetGain(Gain);
-
-                // 设置触发源
-                TriggerSource source;
-                switch (TriggerMode)
-                {
-                    case "软件触发":
-                        source = TriggerSource.Software;
-                        break;
-                    case "硬件触发":
-                        source = GetTriggerSourceFromLine(HardwareTriggerSource);
-                        break;
-                    default:
-                        source = TriggerSource.Continuous;
-                        break;
-                }
-                _camera.SetTriggerSource(source);
-
-                // 线扫相机特有参数
-                if (_camera is ILineCamera lineCamera)
-                {
-                    lineCamera.SetLineRate(LineRate);
-                    lineCamera.SetLineCount(LineCount);
-                }
-
-                FileLogger.Instance.Info($"工位{_stationId}相机参数已应用", "Camera");
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"工位{_stationId}应用参数失败: {ex.Message}", ex, "Camera");
+                FileLogger.Instance.Error($"工位{_stationId}设置曝光失败: {ex.Message}", ex, "Camera");
             }
         }
 
-        private TriggerSource GetTriggerSourceFromLine(string line)
+        private void ApplyGain()
         {
-            switch (line)
+            if (_camera == null || !IsConnected) return;
+            try
             {
-                case "Line1": return TriggerSource.Line1;
-                case "Line2": return TriggerSource.Line2;
-                case "Line3": return TriggerSource.Line3;
-                default: return TriggerSource.Line1;
+                _camera.SetGain(Gain);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{_stationId}设置增益失败: {ex.Message}", ex, "Camera");
+            }
+        }
+
+        private void ApplyTriggerSource()
+        {
+            if (_camera == null || !IsConnected) return;
+            try
+            {
+                var source = MapTriggerSource(TriggerSource);
+                _camera.SetTriggerSource(source);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{_stationId}设置触发源失败: {ex.Message}", ex, "Camera");
+            }
+        }
+
+        private void ApplyLineRate()
+        {
+            if (_camera == null || !IsConnected) return;
+            if (_camera is ILineCamera lineCamera)
+            {
+                try
+                {
+                    lineCamera.SetLineRate(LineRate);
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Error($"工位{_stationId}设置行频失败: {ex.Message}", ex, "Camera");
+                }
+            }
+        }
+
+        private void ApplyLineCount()
+        {
+            if (_camera == null || !IsConnected) return;
+            if (_camera is ILineCamera lineCamera)
+            {
+                try
+                {
+                    lineCamera.SetLineCount(LineCount);
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Error($"工位{_stationId}设置行数失败: {ex.Message}", ex, "Camera");
+                }
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 将界面触发源字符串映射为枚举值
+        /// </summary>
+        private Hardware.Camera.TriggerSource MapTriggerSource(string triggerSource)
+        {
+            switch (triggerSource)
+            {
+                case "软件触发":
+                    return Hardware.Camera.TriggerSource.Software;
+                case "Line0":
+                    return Hardware.Camera.TriggerSource.Line0;
+                case "Line1":
+                    return Hardware.Camera.TriggerSource.Line1;
+                case "Line2":
+                    return Hardware.Camera.TriggerSource.Line2;
+                case "Line3":
+                    return Hardware.Camera.TriggerSource.Line3;
+                default: // 连续采集
+                    return Hardware.Camera.TriggerSource.Continuous;
             }
         }
 
@@ -396,8 +496,6 @@ namespace VisionOTA.Main.ViewModels
             OnPropertyChanged(nameof(GrabButtonText));
             (ToggleConnectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ToggleGrabCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (SoftTriggerCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (ApplyParamsCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SaveImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
@@ -510,6 +608,14 @@ namespace VisionOTA.Main.ViewModels
 
         public override void Cleanup()
         {
+            // 停止并释放软触发定时器
+            if (_softTriggerTimer != null)
+            {
+                _softTriggerTimer.Stop();
+                _softTriggerTimer.Dispose();
+                _softTriggerTimer = null;
+            }
+
             if (_camera != null)
             {
                 _camera.ImageReceived -= OnImageReceived;

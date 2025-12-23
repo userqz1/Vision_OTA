@@ -247,17 +247,24 @@ namespace VisionOTA.Hardware.Camera
         /// </summary>
         protected virtual void InitializeCamera()
         {
-            // 注册流回调
+            // 注册流回调（必须保持委托引用防止被GC）
             _streamCallback = OnStreamCallback;
             var status = DVPCamera.dvpRegisterStreamCallback(_handle, _streamCallback, dvpStreamEvent.STREAM_EVENT_FRAME_THREAD, IntPtr.Zero);
             if (status != dvpStatus.DVP_STATUS_OK)
             {
                 FileLogger.Instance.Warning($"{CameraTypeName}注册流回调失败: {status}", CameraTypeName);
             }
+            else
+            {
+                FileLogger.Instance.Info($"{CameraTypeName}注册流回调成功", CameraTypeName);
+            }
 
-            // 设置初始参数
-            DVPCamera.dvpSetFloatValue(_handle, "ExposureTime", _exposure);
-            DVPCamera.dvpSetFloatValue(_handle, "Gain", _gain);
+            // 设置初始参数（使用dvpParam中的参数名）
+            status = DVPCamera.dvpSetFloatValue(_handle, "ExposureTime", _exposure);
+            FileLogger.Instance.Debug($"{CameraTypeName}设置曝光时间 {_exposure}: {status}", CameraTypeName);
+
+            status = DVPCamera.dvpSetFloatValue(_handle, "Gain", _gain);
+            FileLogger.Instance.Debug($"{CameraTypeName}设置增益 {_gain}: {status}", CameraTypeName);
         }
 
         public void Disconnect()
@@ -293,16 +300,21 @@ namespace VisionOTA.Hardware.Camera
         public bool StartGrab()
         {
             if (!_isConnected || _isGrabbing)
+            {
+                FileLogger.Instance.Warning($"{CameraTypeName}无法开始采集: IsConnected={_isConnected}, IsGrabbing={_isGrabbing}", CameraTypeName);
                 return false;
+            }
 
             try
             {
                 _grabCts = new CancellationTokenSource();
 
                 // 根据触发源配置
+                FileLogger.Instance.Info($"{CameraTypeName}配置触发源: {_currentTriggerSource}", CameraTypeName);
                 ConfigureTrigger(_currentTriggerSource);
 
                 // 启动视频流
+                FileLogger.Instance.Info($"{CameraTypeName}启动视频流...", CameraTypeName);
                 var status = DVPCamera.dvpStart(_handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
@@ -311,7 +323,7 @@ namespace VisionOTA.Hardware.Camera
                 }
 
                 _isGrabbing = true;
-                FileLogger.Instance.Info($"{CameraTypeName}开始采集, 触发源: {_currentTriggerSource}", CameraTypeName);
+                FileLogger.Instance.Info($"{CameraTypeName}视频流启动成功, 触发源: {_currentTriggerSource}", CameraTypeName);
 
                 return true;
             }
@@ -324,34 +336,47 @@ namespace VisionOTA.Hardware.Camera
 
         protected void ConfigureTrigger(TriggerSource source)
         {
+            dvpStatus status;
+
             switch (source)
             {
                 case TriggerSource.Continuous:
-                    DVPCamera.dvpSetTriggerState(_handle, false);
+                    // 使用官方示例的API: dvpSetBoolValue(handle, "TriggerMode", false)
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", false);
+                    FileLogger.Instance.Debug($"设置连续采集模式: {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Software:
-                    DVPCamera.dvpSetTriggerState(_handle, true);
-                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE);
+                    // 先启用触发模式，再设置触发源
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    FileLogger.Instance.Debug($"设置触发模式启用: {status}", CameraTypeName);
+
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Software");
+                    FileLogger.Instance.Debug($"设置软件触发源: {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Line0:
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line0");
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
+                    break;
+
                 case TriggerSource.Line1:
-                    DVPCamera.dvpSetTriggerState(_handle, true);
-                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE1);
-                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line1");
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
                     break;
 
                 case TriggerSource.Line2:
-                    DVPCamera.dvpSetTriggerState(_handle, true);
-                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE2);
-                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line2");
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
                     break;
 
                 case TriggerSource.Line3:
-                    DVPCamera.dvpSetTriggerState(_handle, true);
-                    DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE3);
-                    DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line3");
+                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
                     break;
             }
         }
@@ -542,12 +567,23 @@ namespace VisionOTA.Hardware.Camera
                    source == TriggerSource.Line2 || source == TriggerSource.Line3;
         }
 
+        private int _frameCount = 0;
+
         protected int OnStreamCallback(uint handle, dvpStreamEvent eventType, IntPtr pContext, ref dvpFrame refFrame, IntPtr pBuffer)
         {
             try
             {
+                _frameCount++;
+                if (_frameCount % 30 == 1) // 每30帧打印一次日志，避免日志过多
+                {
+                    FileLogger.Instance.Debug($"{CameraTypeName}回调被调用, 帧数: {_frameCount}, 宽: {refFrame.iWidth}, 高: {refFrame.iHeight}, 格式: {refFrame.format}", CameraTypeName);
+                }
+
                 if (pBuffer == IntPtr.Zero || refFrame.iWidth <= 0 || refFrame.iHeight <= 0)
+                {
+                    FileLogger.Instance.Warning($"{CameraTypeName}回调数据无效: pBuffer={(pBuffer == IntPtr.Zero ? "null" : "valid")}, Width={refFrame.iWidth}, Height={refFrame.iHeight}", CameraTypeName);
                     return 0;
+                }
 
                 int width = refFrame.iWidth;
                 int height = refFrame.iHeight;

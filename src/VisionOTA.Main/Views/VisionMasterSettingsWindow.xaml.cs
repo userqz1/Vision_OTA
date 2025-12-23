@@ -19,7 +19,6 @@ namespace VisionOTA.Main.Views
     /// </summary>
     public partial class VisionMasterSettingsWindow : Window
     {
-        private const string DEFAULT_SOLUTION_PATH = @"D:\Vision_OTA\杭州腾隆化妆瓶算法流程.sol";
         private const string STATION1_NAME = "瓶底工位";
         private const string STATION2_NAME = "瓶身工位";
 
@@ -27,6 +26,12 @@ namespace VisionOTA.Main.Views
         private VmProcedure _station2Procedure;
 
         private bool _isSolutionLoaded = false;
+        private string _currentSolutionPath = "";
+
+        /// <summary>
+        /// 获取配置中的方案路径
+        /// </summary>
+        private string ConfiguredSolutionPath => ConfigManager.Instance.Vision?.VisionMaster?.SolutionPath ?? "";
 
         public VisionMasterSettingsWindow()
         {
@@ -37,16 +42,19 @@ namespace VisionOTA.Main.Views
         {
             try
             {
+                // 从配置获取方案路径
+                _currentSolutionPath = ConfiguredSolutionPath;
+
                 // 检查方案是否已加载（软件初始化时已加载）
                 if (VmSolution.Instance != null)
                 {
                     // 使用已加载的方案
                     UseExistingSolution();
                 }
-                else if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
+                else if (!string.IsNullOrEmpty(_currentSolutionPath) && System.IO.File.Exists(_currentSolutionPath))
                 {
-                    // 方案未加载，尝试加载
-                    await LoadSolutionAsync(DEFAULT_SOLUTION_PATH);
+                    // 方案未加载，尝试加载配置中的路径
+                    await LoadSolutionAsync(_currentSolutionPath);
                 }
                 else
                 {
@@ -68,7 +76,16 @@ namespace VisionOTA.Main.Views
             try
             {
                 _isSolutionLoaded = true;
-                txtSolutionPath.Text = System.IO.Path.GetFileName(DEFAULT_SOLUTION_PATH);
+
+                // 显示配置中的方案路径
+                if (!string.IsNullOrEmpty(_currentSolutionPath))
+                {
+                    txtSolutionPath.Text = System.IO.Path.GetFileName(_currentSolutionPath);
+                }
+                else
+                {
+                    txtSolutionPath.Text = "已加载";
+                }
 
                 // 获取流程
                 _station1Procedure = VmSolution.Instance[STATION1_NAME] as VmProcedure;
@@ -101,10 +118,10 @@ namespace VisionOTA.Main.Views
             catch (Exception ex)
             {
                 FileLogger.Instance.Warning($"获取已加载方案失败: {ex.Message}", "VisionMaster");
-                // 如果获取失败，尝试重新加载
-                if (System.IO.File.Exists(DEFAULT_SOLUTION_PATH))
+                // 如果获取失败，尝试重新加载配置中的路径
+                if (!string.IsNullOrEmpty(_currentSolutionPath) && System.IO.File.Exists(_currentSolutionPath))
                 {
-                    _ = LoadSolutionAsync(DEFAULT_SOLUTION_PATH);
+                    _ = LoadSolutionAsync(_currentSolutionPath);
                 }
             }
         }
@@ -119,11 +136,18 @@ namespace VisionOTA.Main.Views
         /// </summary>
         private async void BtnLoadSolution_Click(object sender, RoutedEventArgs e)
         {
+            // 使用配置中的路径作为初始目录
+            string initialDir = "";
+            if (!string.IsNullOrEmpty(_currentSolutionPath) && System.IO.File.Exists(_currentSolutionPath))
+            {
+                initialDir = System.IO.Path.GetDirectoryName(_currentSolutionPath);
+            }
+
             var dialog = new OpenFileDialog
             {
                 Title = "选择VisionMaster方案文件",
                 Filter = "VisionMaster方案|*.sol|所有文件|*.*",
-                InitialDirectory = System.IO.Path.GetDirectoryName(DEFAULT_SOLUTION_PATH)
+                InitialDirectory = initialDir
             };
 
             if (dialog.ShowDialog() == true)
@@ -215,6 +239,12 @@ namespace VisionOTA.Main.Views
 
                 UpdateStatus(true, "方案已加载");
                 ShowMessage($"方案加载成功，包含 {processCount} 个流程", false);
+
+                // 保存新路径到配置
+                _currentSolutionPath = solutionPath;
+                ConfigManager.Instance.Vision.VisionMaster.SolutionPath = solutionPath;
+                ConfigManager.Instance.SaveVisionConfig();
+                FileLogger.Instance.Info($"方案路径已保存到配置: {solutionPath}", "VisionMaster");
 
                 FileLogger.Instance.Info($"VisionMaster方案已加载: {solutionPath}", "VisionMaster");
 
