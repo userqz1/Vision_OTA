@@ -77,6 +77,17 @@ namespace VisionOTA.Main.Controls
         {
             InitializeComponent();
             SizeChanged += OnSizeChanged;
+            Loaded += OnLoaded;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            // 窗口加载完成后，如果有图像则自适应显示
+            if (_currentBitmap != null && !_hasInitialFit)
+            {
+                _hasInitialFit = true;
+                FitToWindow();
+            }
         }
 
         #region 图像源处理
@@ -513,7 +524,13 @@ namespace VisionOTA.Main.Controls
             var containerWidth = ImageContainer.ActualWidth;
             var containerHeight = ImageContainer.ActualHeight;
 
-            if (containerWidth <= 0 || containerHeight <= 0) return;
+            // 如果容器尺寸还没准备好，延迟执行
+            if (containerWidth <= 0 || containerHeight <= 0)
+            {
+                Dispatcher.BeginInvoke(new Action(FitToWindow),
+                    System.Windows.Threading.DispatcherPriority.Render);
+                return;
+            }
 
             var scaleX = containerWidth / _imageWidth;
             var scaleY = containerHeight / _imageHeight;
