@@ -341,42 +341,40 @@ namespace VisionOTA.Hardware.Camera
             switch (source)
             {
                 case TriggerSource.Continuous:
-                    // 使用官方示例的API: dvpSetBoolValue(handle, "TriggerMode", false)
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", false);
-                    FileLogger.Instance.Debug($"设置连续采集模式: {status}", CameraTypeName);
+                    // 关闭触发模式 = 连续采集
+                    status = DVPCamera.dvpSetTriggerState(_handle, false);
+                    FileLogger.Instance.Debug($"设置连续采集模式(关闭触发): {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Software:
-                    // 先启用触发模式，再设置触发源
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
+                    // 先启用触发模式，再设置触发源为软件触发
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
                     FileLogger.Instance.Debug($"设置触发模式启用: {status}", CameraTypeName);
 
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Software");
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE);
                     FileLogger.Instance.Debug($"设置软件触发源: {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Line0:
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line0");
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
-                    break;
-
                 case TriggerSource.Line1:
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line1");
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE1);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line1: {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Line2:
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line2");
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE2);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line2: {status}", CameraTypeName);
                     break;
 
                 case TriggerSource.Line3:
-                    status = DVPCamera.dvpSetBoolValue(_handle, "TriggerMode", true);
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerSource", "Line3");
-                    status = DVPCamera.dvpSetEnumValueByString(_handle, "TriggerActivation", _triggerEdge == TriggerEdge.RisingEdge ? "RisingEdge" : "FallingEdge");
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE3);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line3: {status}", CameraTypeName);
                     break;
             }
         }
