@@ -469,8 +469,23 @@ namespace VisionOTA.Main.ViewModels
 
         private void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
-            Image = ConvertToBitmapSource(e.Image);
-            ImageReceived?.Invoke(this, e);
+            try
+            {
+                var bitmapSource = ConvertToBitmapSource(e.Image);
+                if (bitmapSource != null)
+                {
+                    // 必须在UI线程更新Image属性
+                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        Image = bitmapSource;
+                    }));
+                }
+                ImageReceived?.Invoke(this, e);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{_stationId}图像接收处理失败: {ex.Message}", ex, "Camera");
+            }
         }
 
         private void OnConnectionChanged(object sender, ConnectionChangedEventArgs e)
@@ -583,10 +598,29 @@ namespace VisionOTA.Main.ViewModels
                     System.Drawing.Imaging.ImageLockMode.ReadOnly,
                     bitmap.PixelFormat);
 
+                // 根据Bitmap的像素格式选择正确的WPF PixelFormat
+                PixelFormat pixelFormat;
+                switch (bitmap.PixelFormat)
+                {
+                    case System.Drawing.Imaging.PixelFormat.Format8bppIndexed:
+                        pixelFormat = PixelFormats.Gray8;
+                        break;
+                    case System.Drawing.Imaging.PixelFormat.Format24bppRgb:
+                        pixelFormat = PixelFormats.Bgr24;
+                        break;
+                    case System.Drawing.Imaging.PixelFormat.Format32bppArgb:
+                    case System.Drawing.Imaging.PixelFormat.Format32bppRgb:
+                        pixelFormat = PixelFormats.Bgr32;
+                        break;
+                    default:
+                        pixelFormat = PixelFormats.Bgr24;
+                        break;
+                }
+
                 var bitmapSource = BitmapSource.Create(
                     bitmap.Width, bitmap.Height,
-                    bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                    PixelFormats.Bgr24, null,
+                    96, 96, // 使用标准DPI
+                    pixelFormat, null,
                     bitmapData.Scan0,
                     bitmapData.Stride * bitmap.Height,
                     bitmapData.Stride);
@@ -598,8 +632,9 @@ namespace VisionOTA.Main.ViewModels
 
                 return bitmapSource;
             }
-            catch
+            catch (Exception ex)
             {
+                FileLogger.Instance.Error($"图像转换失败: {ex.Message}", ex, "Camera");
                 return null;
             }
         }
