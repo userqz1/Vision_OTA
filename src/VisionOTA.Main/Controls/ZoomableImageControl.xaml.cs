@@ -64,6 +64,12 @@ namespace VisionOTA.Main.Controls
         private BitmapSource _currentBitmap;
         private int _imageWidth;
         private int _imageHeight;
+        private bool _hasInitialFit; // 是否已初始化适应窗口
+
+        // FPS计算
+        private int _frameCount;
+        private DateTime _lastFpsTime = DateTime.Now;
+        private double _currentFps;
 
         #endregion
 
@@ -87,8 +93,12 @@ namespace VisionOTA.Main.Controls
 
             if (_currentBitmap != null)
             {
-                _imageWidth = _currentBitmap.PixelWidth;
-                _imageHeight = _currentBitmap.PixelHeight;
+                var newWidth = _currentBitmap.PixelWidth;
+                var newHeight = _currentBitmap.PixelHeight;
+                var sizeChanged = (newWidth != _imageWidth || newHeight != _imageHeight);
+
+                _imageWidth = newWidth;
+                _imageHeight = newHeight;
 
                 // 使用冻结的位图提高性能
                 if (_currentBitmap.CanFreeze && !_currentBitmap.IsFrozen)
@@ -97,10 +107,19 @@ namespace VisionOTA.Main.Controls
                 }
 
                 DisplayImage.Source = _currentBitmap;
+
+                // 计算FPS
+                UpdateFps();
+
+                // 更新状态栏
                 TxtImageSize.Text = $"{_imageWidth} × {_imageHeight}";
 
-                // 自动适应窗口
-                Dispatcher.BeginInvoke(new Action(FitToWindow), System.Windows.Threading.DispatcherPriority.Loaded);
+                // 只在首次或尺寸变化时自动适应窗口
+                if (!_hasInitialFit || sizeChanged)
+                {
+                    _hasInitialFit = true;
+                    Dispatcher.BeginInvoke(new Action(FitToWindow), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
             }
             else
             {
@@ -108,6 +127,28 @@ namespace VisionOTA.Main.Controls
                 TxtImageSize.Text = "";
                 _imageWidth = 0;
                 _imageHeight = 0;
+                _hasInitialFit = false;
+            }
+        }
+
+        private void UpdateFps()
+        {
+            _frameCount++;
+            var now = DateTime.Now;
+            var elapsed = (now - _lastFpsTime).TotalSeconds;
+
+            if (elapsed >= 1.0)
+            {
+                _currentFps = _frameCount / elapsed;
+                _frameCount = 0;
+                _lastFpsTime = now;
+
+                // 更新FPS显示（如果有的话）
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (TxtFps != null)
+                        TxtFps.Text = $"{_currentFps:F1}";
+                }));
             }
         }
 
