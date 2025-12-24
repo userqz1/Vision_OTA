@@ -128,9 +128,9 @@ namespace VisionOTA.Main.Controls
                 TxtImageSize.Text = $"{_imageWidth} × {_imageHeight}";
 
                 // 只在首次或尺寸变化时自动适应窗口
+                // 注意：_hasInitialFit 在 FitToWindow 成功后才设置，确保失败时可以重试
                 if (!_hasInitialFit || sizeChanged)
                 {
-                    _hasInitialFit = true;
                     Dispatcher.BeginInvoke(new Action(FitToWindow), System.Windows.Threading.DispatcherPriority.Loaded);
                 }
             }
@@ -249,9 +249,10 @@ namespace VisionOTA.Main.Controls
                     ImageLockMode.ReadOnly, bitmap.PixelFormat);
 
                 var pixelFormat = GetWpfPixelFormat(bitmap.PixelFormat);
+                // 使用标准96 DPI，与StationViewModel保持一致
                 var bitmapSource = BitmapSource.Create(
                     bitmap.Width, bitmap.Height,
-                    bitmap.HorizontalResolution, bitmap.VerticalResolution,
+                    96, 96,
                     pixelFormat, null,
                     bitmapData.Scan0,
                     bitmapData.Stride * bitmap.Height,
@@ -605,6 +606,9 @@ namespace VisionOTA.Main.Controls
             var offsetY = (containerHeight - _imageHeight * _currentZoom) / 2;
 
             ApplyTransform(_currentZoom, offsetX, offsetY);
+
+            // 适应成功后才标记，确保失败时下一帧可以重试
+            _hasInitialFit = true;
         }
 
         /// <summary>
