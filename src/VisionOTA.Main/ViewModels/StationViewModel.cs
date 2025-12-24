@@ -237,6 +237,58 @@ namespace VisionOTA.Main.ViewModels
             SaveImageCommand = new RelayCommand(_ => SaveImage(), _ => Image != null);
         }
 
+        /// <summary>
+        /// 绑定共享相机实例（用于同步状态）
+        /// </summary>
+        /// <param name="camera">共享的相机实例</param>
+        public void BindSharedCamera(ICamera camera)
+        {
+            if (camera == null) return;
+
+            // 如果已有相机，先解绑事件
+            if (_camera != null)
+            {
+                _camera.ImageReceived -= OnImageReceived;
+                _camera.ConnectionChanged -= OnConnectionChanged;
+            }
+
+            _camera = camera;
+            _camera.ImageReceived += OnImageReceived;
+            _camera.ConnectionChanged += OnConnectionChanged;
+
+            // 同步当前状态
+            SyncCameraStatus();
+        }
+
+        /// <summary>
+        /// 同步相机状态到UI
+        /// </summary>
+        public void SyncCameraStatus()
+        {
+            if (_camera == null)
+            {
+                StatusText = "未连接";
+                StatusColor = new SolidColorBrush(Colors.Gray);
+                FriendlyName = "--";
+                SerialDisplay = "--";
+            }
+            else if (_camera.IsConnected)
+            {
+                StatusText = "已连接";
+                StatusColor = new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32));
+                FriendlyName = _camera.FriendlyName ?? "--";
+                SerialDisplay = _camera.SerialNumber ?? "--";
+            }
+            else
+            {
+                StatusText = "未连接";
+                StatusColor = new SolidColorBrush(Colors.Gray);
+                FriendlyName = "--";
+                SerialDisplay = "--";
+            }
+            RefreshCommands();
+        }
+
         private void ToggleConnection()
         {
             if (IsConnected)
@@ -651,11 +703,11 @@ namespace VisionOTA.Main.ViewModels
                 _softTriggerTimer = null;
             }
 
+            // 只解绑事件，不释放相机（由CameraManager管理）
             if (_camera != null)
             {
                 _camera.ImageReceived -= OnImageReceived;
                 _camera.ConnectionChanged -= OnConnectionChanged;
-                _camera.Dispose();
                 _camera = null;
             }
             base.Cleanup();

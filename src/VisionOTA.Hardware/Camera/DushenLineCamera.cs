@@ -9,8 +9,7 @@ namespace VisionOTA.Hardware.Camera
     /// </summary>
     public class DushenLineCamera : DushenCameraBase, ILineCamera
     {
-        private int _lineRate = 10000;
-        private int _lineCount = 4096;
+        private int _lineRate = 0; // 0 表示使用默认值
 
         protected override string CameraTypeName => "度申线扫相机";
         protected override int DefaultExposure => 2000;
@@ -20,21 +19,25 @@ namespace VisionOTA.Hardware.Camera
         }
 
         /// <summary>
-        /// 初始化相机 - 添加线扫特有参数
+        /// 初始化相机 - 使用默认参数
         /// </summary>
         protected override void InitializeCamera()
         {
             base.InitializeCamera();
-
-            // 线扫特有参数
-            DVPCamera.dvpSetIntValue(_handle, "LineRate", _lineRate);
-            DVPCamera.dvpSetIntValue(_handle, "Height", _lineCount);
+            // 使用相机默认的图像尺寸和行频，不额外设置
         }
 
         public bool SetLineRate(int lineRate)
         {
             try
             {
+                if (lineRate <= 0)
+                {
+                    // 0 或负数表示使用默认值，不设置
+                    _lineRate = 0;
+                    return true;
+                }
+
                 _lineRate = lineRate;
                 if (_isConnected && _handle != 0)
                 {
@@ -69,42 +72,17 @@ namespace VisionOTA.Hardware.Camera
             return _lineRate;
         }
 
+        // LineCount 相关方法保留空实现以兼容接口
         public bool SetLineCount(int lineCount)
         {
-            try
-            {
-                _lineCount = lineCount;
-                if (_isConnected && _handle != 0)
-                {
-                    var status = DVPCamera.dvpSetIntValue(_handle, "Height", lineCount);
-                    if (status != dvpStatus.DVP_STATUS_OK)
-                    {
-                        FileLogger.Instance.Warning($"{CameraTypeName}设置采集行数失败: {status}", CameraTypeName);
-                        return false;
-                    }
-                }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"设置采集行数失败: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
+            // 使用相机默认配置，不设置行数
+            return true;
         }
 
         public int GetLineCount()
         {
-            if (_isConnected && _handle != 0)
-            {
-                int height = 0;
-                dvpIntDescr descr = new dvpIntDescr();
-                var status = DVPCamera.dvpGetIntValue(_handle, "Height", ref height, ref descr);
-                if (status == dvpStatus.DVP_STATUS_OK)
-                {
-                    _lineCount = height;
-                }
-            }
-            return _lineCount;
+            // 返回0表示使用默认值
+            return 0;
         }
     }
 }

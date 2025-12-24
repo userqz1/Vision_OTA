@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using VisionOTA.Main.Helpers;
 using VisionOTA.Main.ViewModels;
 
 namespace VisionOTA.Main.Views
@@ -21,6 +22,12 @@ namespace VisionOTA.Main.Views
 
             // 窗口关闭时清理资源
             Closing += OnWindowClosing;
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 自适应屏幕尺寸
+            WindowHelper.AdaptToScreen(this, 0.8, 0.8, 650, 400);
         }
 
         private void OnWindowClosing(object sender, CancelEventArgs e)

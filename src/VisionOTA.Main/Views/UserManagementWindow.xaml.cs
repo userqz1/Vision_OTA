@@ -1,4 +1,5 @@
 using System.Windows;
+using VisionOTA.Main.Helpers;
 using VisionOTA.Main.ViewModels;
 
 namespace VisionOTA.Main.Views
@@ -12,6 +13,7 @@ namespace VisionOTA.Main.Views
         {
             InitializeComponent();
             DataContext = new UserManagementViewModel();
+            Loaded += (s, e) => WindowHelper.AdaptToScreen(this, 0.7, 0.7, 600, 450);
         }
     }
 }

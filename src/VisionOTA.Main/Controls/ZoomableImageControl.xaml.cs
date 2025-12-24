@@ -69,7 +69,9 @@ namespace VisionOTA.Main.Controls
         // FPS计算
         private int _frameCount;
         private DateTime _lastFpsTime = DateTime.Now;
+        private DateTime _lastFrameTime = DateTime.Now;
         private double _currentFps;
+        private double _instantFps; // 瞬时帧率（用于首帧立即显示）
 
         #endregion
 
@@ -136,29 +138,64 @@ namespace VisionOTA.Main.Controls
             {
                 DisplayImage.Source = null;
                 TxtImageSize.Text = "";
+                TxtFps.Text = "--";
                 _imageWidth = 0;
                 _imageHeight = 0;
                 _hasInitialFit = false;
+                // 重置FPS计数
+                _frameCount = 0;
+                _currentFps = 0;
+                _lastFpsTime = DateTime.Now;
+                _lastFrameTime = DateTime.Now;
             }
         }
 
         private void UpdateFps()
         {
-            _frameCount++;
             var now = DateTime.Now;
+
+            // 计算瞬时帧率（帧间隔的倒数）
+            var frameInterval = (now - _lastFrameTime).TotalSeconds;
+            _lastFrameTime = now;
+            if (frameInterval > 0 && frameInterval < 10) // 忽略异常大的间隔
+            {
+                _instantFps = 1.0 / frameInterval;
+            }
+
+            _frameCount++;
             var elapsed = (now - _lastFpsTime).TotalSeconds;
 
+            // 首帧立即显示瞬时帧率
+            if (_frameCount == 1 && TxtFps != null)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    TxtFps.Text = "...";
+                }));
+            }
+
+            // 每秒更新一次平均帧率
             if (elapsed >= 1.0)
             {
                 _currentFps = _frameCount / elapsed;
                 _frameCount = 0;
                 _lastFpsTime = now;
 
-                // 更新FPS显示（如果有的话）
+                // 更新FPS显示
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     if (TxtFps != null)
                         TxtFps.Text = $"{_currentFps:F1}";
+                }));
+            }
+            // 0.5秒时也更新一次，让用户更快看到帧率
+            else if (elapsed >= 0.5 && _frameCount > 0 && _currentFps == 0)
+            {
+                var tempFps = _frameCount / elapsed;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (TxtFps != null)
+                        TxtFps.Text = $"{tempFps:F1}";
                 }));
             }
         }
@@ -420,6 +457,18 @@ namespace VisionOTA.Main.Controls
 
             TxtZoom.Text = $"{(int)(zoom * 100)}%";
 
+            // 根据缩放比例动态切换渲染模式
+            // >= 100%: NearestNeighbor (显示像素块，适合检查细节)
+            // < 100%: HighQuality (平滑显示，适合整体查看)
+            if (zoom >= 1.0)
+            {
+                RenderOptions.SetBitmapScalingMode(DisplayImage, BitmapScalingMode.NearestNeighbor);
+            }
+            else
+            {
+                RenderOptions.SetBitmapScalingMode(DisplayImage, BitmapScalingMode.HighQuality);
+            }
+
             // 更新辅助线
             UpdateCrosshair();
         }
@@ -514,6 +563,9 @@ namespace VisionOTA.Main.Controls
 
         #region 公共方法
 
+        private int _fitRetryCount = 0;
+        private const int MAX_FIT_RETRY = 5;
+
         /// <summary>
         /// 适应窗口显示
         /// </summary>
@@ -524,17 +576,29 @@ namespace VisionOTA.Main.Controls
             var containerWidth = ImageContainer.ActualWidth;
             var containerHeight = ImageContainer.ActualHeight;
 
-            // 如果容器尺寸还没准备好，延迟执行
-            if (containerWidth <= 0 || containerHeight <= 0)
+            // 如果容器尺寸还没准备好，延迟执行（最多重试5次）
+            if (containerWidth <= 10 || containerHeight <= 10)
             {
-                Dispatcher.BeginInvoke(new Action(FitToWindow),
-                    System.Windows.Threading.DispatcherPriority.Render);
+                if (_fitRetryCount < MAX_FIT_RETRY)
+                {
+                    _fitRetryCount++;
+                    Dispatcher.BeginInvoke(new Action(FitToWindow),
+                        System.Windows.Threading.DispatcherPriority.Background);
+                }
                 return;
             }
 
+            _fitRetryCount = 0;
+
             var scaleX = containerWidth / _imageWidth;
             var scaleY = containerHeight / _imageHeight;
-            _currentZoom = Math.Min(scaleX, scaleY) * 0.95; // 留5%边距
+            _currentZoom = Math.Min(scaleX, scaleY) * 0.98; // 留2%边距
+
+            // 确保缩放比例合理
+            if (_currentZoom <= 0 || double.IsNaN(_currentZoom) || double.IsInfinity(_currentZoom))
+            {
+                _currentZoom = 1.0;
+            }
 
             // 居中显示
             var offsetX = (containerWidth - _imageWidth * _currentZoom) / 2;

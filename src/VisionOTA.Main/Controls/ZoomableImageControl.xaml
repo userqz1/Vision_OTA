@@ -22,7 +22,6 @@
             <Image x:Name="DisplayImage"
                    Stretch="None"
                    RenderOptions.BitmapScalingMode="NearestNeighbor"
-                   RenderOptions.EdgeMode="Aliased"
                    SnapsToDevicePixels="True"
                    UseLayoutRounding="True"
                    HorizontalAlignment="Left"

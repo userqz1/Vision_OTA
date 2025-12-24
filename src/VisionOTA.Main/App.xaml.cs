@@ -1,4 +1,5 @@
 using System.Windows;
+using VisionOTA.Hardware.Camera;
 using VisionOTA.Infrastructure.Logging;
 
 namespace VisionOTA.Main
@@ -14,6 +15,10 @@ namespace VisionOTA.Main
         protected override void OnExit(ExitEventArgs e)
         {
             FileLogger.Instance.Info("VisionOTA 退出", "App");
+
+            // 释放相机资源
+            CameraManager.Instance.Dispose();
+
             FileLogger.Instance.Dispose();
             base.OnExit(e);
         }

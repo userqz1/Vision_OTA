@@ -118,9 +118,13 @@ namespace VisionOTA.Main.ViewModels
         {
             Title = "相机设置";
 
-            // 创建工位视图模型
-            Station1 = new StationViewModel(1, () => CameraFactory.CreateAreaCamera());
-            Station2 = new StationViewModel(2, () => CameraFactory.CreateLineCamera());
+            // 创建工位视图模型（不传工厂，使用共享相机实例）
+            Station1 = new StationViewModel(1, null);
+            Station2 = new StationViewModel(2, null);
+
+            // 绑定共享相机实例（从CameraManager获取）
+            Station1.BindSharedCamera(CameraManager.Instance.GetCamera(1));
+            Station2.BindSharedCamera(CameraManager.Instance.GetCamera(2));
 
             // 订阅图像接收事件以在UI线程更新
             Station1.ImageReceived += OnStation1ImageReceived;
@@ -338,8 +342,9 @@ namespace VisionOTA.Main.ViewModels
 
         public override void Cleanup()
         {
-            Station1?.Dispose();
-            Station2?.Dispose();
+            // 只解绑事件，不释放相机（由CameraManager管理）
+            Station1?.Cleanup();
+            Station2?.Cleanup();
             base.Cleanup();
         }
     }

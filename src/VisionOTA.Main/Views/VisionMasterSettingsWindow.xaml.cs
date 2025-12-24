@@ -11,6 +11,7 @@ using VisionOTA.Common.Events;
 using VisionOTA.Infrastructure.Config;
 using VisionOTA.Infrastructure.Logging;
 using VisionOTA.Hardware.Plc;
+using VisionOTA.Main.Helpers;
 
 namespace VisionOTA.Main.Views
 {
@@ -40,6 +41,9 @@ namespace VisionOTA.Main.Views
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            // 自适应屏幕尺寸
+            WindowHelper.AdaptToScreen(this, 0.9, 0.9, 1000, 700);
+
             try
             {
                 // 从配置获取方案路径

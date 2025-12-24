@@ -129,10 +129,10 @@ namespace VisionOTA.Core.Services
             {
                 FileLogger.Instance.Info("正在初始化检测服务...", "Inspection");
 
-                // 初始化相机
+                // 从CameraManager获取共享相机实例
                 var cameraConfig = ConfigManager.Instance.Camera;
-                _cameras[1] = CameraFactory.CreateAreaCamera();
-                _cameras[2] = CameraFactory.CreateLineCamera();
+                _cameras[1] = CameraManager.Instance.GetCamera(1);
+                _cameras[2] = CameraManager.Instance.GetCamera(2);
 
                 // 注册相机事件
                 foreach (var camera in _cameras.Values)
@@ -140,6 +140,10 @@ namespace VisionOTA.Core.Services
                     camera.ImageReceived += OnImageReceived;
                     camera.ConnectionChanged += OnCameraConnectionChanged;
                 }
+
+                // 使用配置的userId连接相机，并应用触发源设置
+                await ConnectAndConfigureCameraAsync(1, cameraConfig.Station1);
+                await ConnectAndConfigureCameraAsync(2, cameraConfig.Station2);
 
                 // 初始化真实PLC连接
                 var plcConfig = ConfigManager.Instance.Plc;
@@ -316,6 +320,84 @@ namespace VisionOTA.Core.Services
             }
         }
 
+        /// <summary>
+        /// 连接相机并配置触发源
+        /// </summary>
+        private async Task ConnectAndConfigureCameraAsync(int stationId, StationCameraConfig config)
+        {
+            if (!_cameras.ContainsKey(stationId))
+                return;
+
+            var camera = _cameras[stationId];
+
+            // 检查UserId是否配置
+            if (string.IsNullOrEmpty(config.UserId))
+            {
+                FileLogger.Instance.Warning($"工位{stationId}相机UserId未配置，跳过自动连接", "Inspection");
+                return;
+            }
+
+            try
+            {
+                // 使用UserId连接相机
+                FileLogger.Instance.Info($"工位{stationId}正在连接相机: UserId={config.UserId}", "Inspection");
+                var connected = camera.Connect(config.UserId);
+
+                if (connected)
+                {
+                    FileLogger.Instance.Info($"工位{stationId}相机连接成功: {camera.FriendlyName}", "Inspection");
+
+                    // 应用曝光和增益
+                    camera.SetExposure(config.Exposure);
+                    camera.SetGain(config.Gain);
+
+                    // 从配置读取并应用触发源
+                    var triggerSource = ConvertConfigToTriggerSource(config.TriggerSource);
+                    camera.SetTriggerSource(triggerSource);
+                    FileLogger.Instance.Info($"工位{stationId}触发源设置为: {config.TriggerSource}", "Inspection");
+
+                    // 线扫相机额外配置
+                    if (camera is ILineCamera lineCamera && config is LineCameraConfig lineConfig)
+                    {
+                        lineCamera.SetLineRate(lineConfig.LineRate);
+                        lineCamera.SetLineCount(lineConfig.LineCount);
+                    }
+
+                    // 发布连接状态
+                    EventAggregator.Instance.Publish(new ConnectionChangedEvent
+                    {
+                        DeviceType = $"Camera{stationId}",
+                        DeviceName = camera.FriendlyName,
+                        IsConnected = true
+                    });
+                }
+                else
+                {
+                    FileLogger.Instance.Warning($"工位{stationId}相机连接失败: UserId={config.UserId}", "Inspection");
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{stationId}相机连接异常: {ex.Message}", ex, "Inspection");
+            }
+        }
+
+        /// <summary>
+        /// 将配置文件触发源转换为枚举
+        /// </summary>
+        private TriggerSource ConvertConfigToTriggerSource(string configValue)
+        {
+            switch (configValue)
+            {
+                case "Software": return TriggerSource.Software;
+                case "Line0": return TriggerSource.Line0;
+                case "Line1": return TriggerSource.Line1;
+                case "Line2": return TriggerSource.Line2;
+                case "Line3": return TriggerSource.Line3;
+                default: return TriggerSource.Continuous;
+            }
+        }
+
         public async Task<bool> StartAsync()
         {
             if (CurrentState == SystemState.Running)
@@ -340,10 +422,7 @@ namespace VisionOTA.Core.Services
                 }
 
                 CurrentState = SystemState.Running;
-                FileLogger.Instance.Info("检测已启动", "Inspection");
-
-                // 启动触发监听（模拟模式下使用定时触发）
-                _ = Task.Run(() => MonitorTriggerAsync(_runCts.Token));
+                FileLogger.Instance.Info("检测已启动 (硬件触发模式)", "Inspection");
 
                 return true;
             }
@@ -513,112 +592,6 @@ namespace VisionOTA.Core.Services
             }
         }
 
-        private async Task MonitorTriggerAsync(CancellationToken cancellationToken)
-        {
-            // 模拟模式下的触发监听
-            // 实际生产中应该监听PLC触发信号
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(100, cancellationToken);
-
-                    if (CurrentState != SystemState.Running)
-                        continue;
-
-                    // 检查PLC触发信号
-                    var plcConfig = ConfigManager.Instance.Plc;
-
-                    // 检查工位1触发
-                    if (_plc.IsConnected)
-                    {
-                        var station1Trigger = await _plc.ReadBitAsync(plcConfig.InputAddresses.Station1Trigger.Address);
-                        if (station1Trigger)
-                        {
-                            await ProcessStationAsync(1);
-                        }
-
-                        var station2Trigger = await _plc.ReadBitAsync(plcConfig.InputAddresses.Station2Trigger.Address);
-                        if (station2Trigger)
-                        {
-                            await ProcessStationAsync(2);
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    FileLogger.Instance.Error($"触发监听错误: {ex.Message}", ex, "Inspection");
-                }
-            }
-        }
-
-        private async Task ProcessStationAsync(int stationId)
-        {
-            // 瓶身工位（工位2）检测前，先设置旋转角度
-            if (stationId == 2)
-            {
-                await SetRotationAngleBeforeInspectionAsync();
-            }
-
-            var result = await ExecuteSingleAsync(stationId);
-            if (result == null)
-                return;
-
-            // 更新统计
-            _statisticsService.AddResult(stationId, result.IsOk);
-
-            // 写入PLC
-            if (_plc.IsConnected)
-            {
-                var plcConfig = ConfigManager.Instance.Plc;
-
-                // 写入结果 (1.0=OK, 0.0=NG) - REAL类型
-                await _plc.WriteFloatAsync(plcConfig.OutputAddresses.Result.Address, result.IsOk ? 1.0f : 0.0f);
-
-                // 写入角度值（仅OK时有效）- REAL类型
-                if (result.IsOk)
-                {
-                    await _plc.WriteFloatAsync(plcConfig.OutputAddresses.RotationAngle.Address, (float)result.Angle);
-                }
-            }
-
-            // 保存图片
-            if (result.ResultImage != null)
-            {
-                result.ImagePath = ImageStorage.Instance.SaveImage(result.ResultImage, stationId, result.IsOk);
-            }
-
-            // 处理连续失败
-            if (!result.IsOk)
-            {
-                _consecutiveFailures++;
-                var threshold = ConfigManager.Instance.SystemCfg.ConsecutiveFailureAlarmThreshold;
-                if (_consecutiveFailures >= threshold)
-                {
-                    ErrorOccurred?.Invoke(this, $"工位{stationId}连续{_consecutiveFailures}次检测失败");
-                }
-            }
-            else
-            {
-                _consecutiveFailures = 0;
-            }
-
-            // 触发事件
-            InspectionCompleted?.Invoke(this, new InspectionCompletedEventArgs { Result = result });
-
-            EventAggregator.Instance.Publish(new InspectionCompletedEvent
-            {
-                StationId = stationId,
-                IsOk = result.IsOk,
-                Angle = result.Angle,
-                Score = result.Score,
-                Timestamp = result.Timestamp
-            });
-        }
 
         private async void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
@@ -868,10 +841,17 @@ namespace VisionOTA.Core.Services
             }
             catch { }
 
+            // 取消相机事件订阅（相机实例由CameraManager管理，不在此释放）
             foreach (var camera in _cameras.Values)
             {
-                try { camera.Dispose(); } catch { }
+                try
+                {
+                    camera.ImageReceived -= OnImageReceived;
+                    camera.ConnectionChanged -= OnCameraConnectionChanged;
+                }
+                catch { }
             }
+            _cameras.Clear();
 
             foreach (var vision in _visionProcessors.Values)
             {

@@ -95,6 +95,11 @@ namespace VisionOTA.Hardware.Camera
         }
 
         /// <summary>
+        /// 连接超时时间（毫秒）
+        /// </summary>
+        private const int CONNECT_TIMEOUT_MS = 10000;
+
+        /// <summary>
         /// 通过UserId连接相机
         /// </summary>
         public bool Connect(string userId)
@@ -107,11 +112,48 @@ namespace VisionOTA.Hardware.Camera
                     return false;
                 }
 
+                // 使用超时机制执行连接
+                var connectTask = System.Threading.Tasks.Task.Run(() => ConnectInternal(userId));
+
+                if (!connectTask.Wait(CONNECT_TIMEOUT_MS))
+                {
+                    FileLogger.Instance.Error($"{CameraTypeName}连接超时: UserId='{userId}', 超时时间={CONNECT_TIMEOUT_MS}ms", null, CameraTypeName);
+                    return false;
+                }
+
+                return connectTask.Result;
+            }
+            catch (AggregateException ae)
+            {
+                // Task.Wait 抛出的聚合异常
+                var innerEx = ae.InnerException ?? ae;
+                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {innerEx.Message}", innerEx, CameraTypeName);
+                return false;
+            }
+            catch (DllNotFoundException ex)
+            {
+                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 实际连接逻辑（在后台线程执行）
+        /// </summary>
+        private bool ConnectInternal(string userId)
+        {
+            try
+            {
                 uint count = 0;
                 var status = DVPCamera.dvpRefresh(ref count);
                 if (status != dvpStatus.DVP_STATUS_OK || count == 0)
                 {
-                    FileLogger.Instance.Warning($"{CameraTypeName}连接失败: 未找到任何设备", CameraTypeName);
+                    FileLogger.Instance.Warning($"{CameraTypeName}连接失败: 未找到任何设备 (status={status}, count={count})", CameraTypeName);
                     return false;
                 }
 
@@ -119,7 +161,8 @@ namespace VisionOTA.Hardware.Camera
                 status = DVPCamera.dvpOpenByUserId(userId, dvpOpenMode.OPEN_NORMAL, ref handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
-                    FileLogger.Instance.Error($"{CameraTypeName}通过UserId '{userId}' 打开失败: {status}", null, CameraTypeName);
+                    string errorMsg = GetStatusMessage(status);
+                    FileLogger.Instance.Error($"{CameraTypeName}通过UserId '{userId}' 打开失败: {status} - {errorMsg}", null, CameraTypeName);
                     return false;
                 }
 
@@ -140,6 +183,56 @@ namespace VisionOTA.Hardware.Camera
 
                 return true;
             }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"{CameraTypeName}连接内部错误: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取状态码对应的消息
+        /// </summary>
+        private string GetStatusMessage(dvpStatus status)
+        {
+            // 只使用SDK中定义的状态码
+            switch (status)
+            {
+                case dvpStatus.DVP_STATUS_OK: return "成功";
+                case dvpStatus.DVP_STATUS_BUSY: return "设备忙";
+                case dvpStatus.DVP_STATUS_IO_ERROR: return "IO错误";
+                case dvpStatus.DVP_STATUS_NOT_SUPPORTED: return "不支持的操作";
+                case dvpStatus.DVP_STATUS_NOT_INITIALIZED: return "未初始化";
+                case dvpStatus.DVP_STATUS_NOT_VALID: return "无效操作";
+                case dvpStatus.DVP_STATUS_NOT_READY: return "设备未就绪";
+                default: return $"错误码({(int)status})";
+            }
+        }
+
+        /// <summary>
+        /// 通过枚举索引连接相机
+        /// </summary>
+        public bool ConnectByIndex(int index)
+        {
+            try
+            {
+                // 使用超时机制执行连接
+                var connectTask = System.Threading.Tasks.Task.Run(() => ConnectByIndexInternal(index));
+
+                if (!connectTask.Wait(CONNECT_TIMEOUT_MS))
+                {
+                    FileLogger.Instance.Error($"{CameraTypeName}连接超时: Index={index}, 超时时间={CONNECT_TIMEOUT_MS}ms", null, CameraTypeName);
+                    return false;
+                }
+
+                return connectTask.Result;
+            }
+            catch (AggregateException ae)
+            {
+                var innerEx = ae.InnerException ?? ae;
+                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {innerEx.Message}", innerEx, CameraTypeName);
+                return false;
+            }
             catch (DllNotFoundException ex)
             {
                 FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
@@ -153,9 +246,9 @@ namespace VisionOTA.Hardware.Camera
         }
 
         /// <summary>
-        /// 通过枚举索引连接相机
+        /// 通过索引连接的内部实现
         /// </summary>
-        public bool ConnectByIndex(int index)
+        private bool ConnectByIndexInternal(int index)
         {
             try
             {
@@ -169,7 +262,7 @@ namespace VisionOTA.Hardware.Camera
 
                 if (index < 0 || index >= count)
                 {
-                    FileLogger.Instance.Error($"{CameraTypeName}连接失败: 索引 {index} 超出范围", null, CameraTypeName);
+                    FileLogger.Instance.Error($"{CameraTypeName}连接失败: 索引 {index} 超出范围(0-{count - 1})", null, CameraTypeName);
                     return false;
                 }
 
@@ -177,7 +270,7 @@ namespace VisionOTA.Hardware.Camera
                 status = DVPCamera.dvpEnum((uint)index, ref info);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
-                    FileLogger.Instance.Error($"{CameraTypeName}枚举失败: {status}", null, CameraTypeName);
+                    FileLogger.Instance.Error($"{CameraTypeName}枚举失败: {status} - {GetStatusMessage(status)}", null, CameraTypeName);
                     return false;
                 }
 
@@ -185,7 +278,7 @@ namespace VisionOTA.Hardware.Camera
                 status = DVPCamera.dvpOpen((uint)index, dvpOpenMode.OPEN_NORMAL, ref handle);
                 if (status != dvpStatus.DVP_STATUS_OK)
                 {
-                    FileLogger.Instance.Error($"{CameraTypeName}打开失败: {status}", null, CameraTypeName);
+                    FileLogger.Instance.Error($"{CameraTypeName}打开失败: {status} - {GetStatusMessage(status)}", null, CameraTypeName);
                     return false;
                 }
 
@@ -207,14 +300,9 @@ namespace VisionOTA.Hardware.Camera
 
                 return true;
             }
-            catch (DllNotFoundException ex)
-            {
-                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
+                FileLogger.Instance.Error($"{CameraTypeName}连接内部错误: {ex.Message}", ex, CameraTypeName);
                 return false;
             }
         }
@@ -572,9 +660,10 @@ namespace VisionOTA.Hardware.Camera
             try
             {
                 _frameCount++;
-                if (_frameCount % 30 == 1) // 每30帧打印一次日志，避免日志过多
+                // 仅在首帧和每500帧时打印日志，避免影响性能
+                if (_frameCount == 1 || _frameCount % 500 == 0)
                 {
-                    FileLogger.Instance.Debug($"{CameraTypeName}回调被调用, 帧数: {_frameCount}, 宽: {refFrame.iWidth}, 高: {refFrame.iHeight}, 格式: {refFrame.format}", CameraTypeName);
+                    FileLogger.Instance.Debug($"{CameraTypeName}回调, 帧数: {_frameCount}, 尺寸: {refFrame.iWidth}x{refFrame.iHeight}, 格式: {refFrame.format}", CameraTypeName);
                 }
 
                 if (pBuffer == IntPtr.Zero || refFrame.iWidth <= 0 || refFrame.iHeight <= 0)
@@ -626,11 +715,20 @@ namespace VisionOTA.Hardware.Camera
                 int srcStride = width * bytesPerPixel;
                 int dstStride = bitmapData.Stride;
 
-                for (int y = 0; y < height; y++)
+                // 优化：如果stride相同，使用整块内存复制（更快）
+                if (srcStride == dstStride)
                 {
-                    IntPtr srcRow = new IntPtr(pBuffer.ToInt64() + y * srcStride);
-                    IntPtr dstRow = new IntPtr(bitmapData.Scan0.ToInt64() + y * dstStride);
-                    CopyMemory(dstRow, srcRow, srcStride);
+                    CopyMemory(bitmapData.Scan0, pBuffer, srcStride * height);
+                }
+                else
+                {
+                    // stride不同时才逐行复制
+                    for (int y = 0; y < height; y++)
+                    {
+                        IntPtr srcRow = new IntPtr(pBuffer.ToInt64() + y * srcStride);
+                        IntPtr dstRow = new IntPtr(bitmapData.Scan0.ToInt64() + y * dstStride);
+                        CopyMemory(dstRow, srcRow, srcStride);
+                    }
                 }
 
                 bitmap.UnlockBits(bitmapData);

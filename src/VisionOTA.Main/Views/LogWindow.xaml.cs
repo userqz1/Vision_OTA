@@ -1,4 +1,5 @@
 using System.Windows;
+using VisionOTA.Main.Helpers;
 using VisionOTA.Main.ViewModels;
 
 namespace VisionOTA.Main.Views
@@ -14,6 +15,7 @@ namespace VisionOTA.Main.Views
             var viewModel = new LogViewModel();
             DataContext = viewModel;
             Closing += (s, e) => viewModel.Dispose();
+            Loaded += (s, e) => WindowHelper.AdaptToScreen(this, 0.8, 0.8, 700, 500);
         }
     }
 }
