@@ -19,17 +19,19 @@
                 MouseRightButtonDown="OnMouseRightButtonDown"
                 SizeChanged="OnContainerSizeChanged">
 
-            <Image x:Name="DisplayImage"
-                   Stretch="None"
-                   RenderOptions.BitmapScalingMode="NearestNeighbor"
-                   RenderTransformOrigin="0,0">
-                <Image.RenderTransform>
-                    <TransformGroup>
-                        <ScaleTransform x:Name="ImageScale"/>
-                        <TranslateTransform x:Name="ImageTranslate"/>
-                    </TransformGroup>
-                </Image.RenderTransform>
-            </Image>
+            <!-- Canvas不限制子元素的布局大小，Image可以完整渲染 -->
+            <Canvas>
+                <Image x:Name="DisplayImage"
+                       Stretch="None"
+                       RenderOptions.BitmapScalingMode="NearestNeighbor">
+                    <Image.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="ImageScale"/>
+                            <TranslateTransform x:Name="ImageTranslate"/>
+                        </TransformGroup>
+                    </Image.RenderTransform>
+                </Image>
+            </Canvas>
         </Border>
 
         <!-- 状态栏 -->
