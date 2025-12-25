@@ -121,8 +121,7 @@
 
                     <!-- 工位1图像显示 -->
                     <controls:ZoomableImageControl Grid.Row="1"
-                        ImageSource="{Binding Station1.Image}"
-                        ShowCrosshair="{Binding ShowCrosshair}"/>
+                        ImageSource="{Binding Station1.Image}"/>
 
                     <!-- 工位1统计 -->
                     <Grid Grid.Row="2" Margin="0,16,0,0">
@@ -174,8 +173,7 @@
 
                     <!-- 工位2图像显示 -->
                     <controls:ZoomableImageControl Grid.Row="1"
-                        ImageSource="{Binding Station2.Image}"
-                        ShowCrosshair="{Binding ShowCrosshair}"/>
+                        ImageSource="{Binding Station2.Image}"/>
 
                     <!-- 工位2统计 -->
                     <Grid Grid.Row="2" Margin="0,16,0,0">

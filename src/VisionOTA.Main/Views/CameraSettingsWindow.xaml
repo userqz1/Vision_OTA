@@ -83,8 +83,7 @@
 
                 <!-- 图像显示 -->
                 <controls:ZoomableImageControl Grid.Row="1" Margin="10"
-                    ImageSource="{Binding Station1.Image}"
-                    ShowCrosshair="{Binding ShowCrosshair}"/>
+                    ImageSource="{Binding Station1.Image}"/>
 
                 <!-- 参数区域 - 固定高度 -->
                 <Grid Grid.Row="2" Margin="10,0,10,10">
@@ -202,8 +201,7 @@
 
                 <!-- 图像显示 -->
                 <controls:ZoomableImageControl Grid.Row="1" Margin="10"
-                    ImageSource="{Binding Station2.Image}"
-                    ShowCrosshair="{Binding ShowCrosshair}"/>
+                    ImageSource="{Binding Station2.Image}"/>
 
                 <!-- 参数区域 - 固定高度 -->
                 <Grid Grid.Row="2" Margin="10,0,10,10">
