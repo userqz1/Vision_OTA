@@ -95,11 +95,6 @@ namespace VisionOTA.Hardware.Camera
         }
 
         /// <summary>
-        /// 连接超时时间（毫秒）
-        /// </summary>
-        private const int CONNECT_TIMEOUT_MS = 10000;
-
-        /// <summary>
         /// 通过UserId连接相机
         /// </summary>
         public bool Connect(string userId)
@@ -112,43 +107,6 @@ namespace VisionOTA.Hardware.Camera
                     return false;
                 }
 
-                // 使用超时机制执行连接
-                var connectTask = System.Threading.Tasks.Task.Run(() => ConnectInternal(userId));
-
-                if (!connectTask.Wait(CONNECT_TIMEOUT_MS))
-                {
-                    FileLogger.Instance.Error($"{CameraTypeName}连接超时: UserId='{userId}', 超时时间={CONNECT_TIMEOUT_MS}ms", null, CameraTypeName);
-                    return false;
-                }
-
-                return connectTask.Result;
-            }
-            catch (AggregateException ae)
-            {
-                // Task.Wait 抛出的聚合异常
-                var innerEx = ae.InnerException ?? ae;
-                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {innerEx.Message}", innerEx, CameraTypeName);
-                return false;
-            }
-            catch (DllNotFoundException ex)
-            {
-                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 实际连接逻辑（在后台线程执行）
-        /// </summary>
-        private bool ConnectInternal(string userId)
-        {
-            try
-            {
                 uint count = 0;
                 var status = DVPCamera.dvpRefresh(ref count);
                 if (status != dvpStatus.DVP_STATUS_OK || count == 0)
@@ -183,9 +141,14 @@ namespace VisionOTA.Hardware.Camera
 
                 return true;
             }
+            catch (DllNotFoundException ex)
+            {
+                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"{CameraTypeName}连接内部错误: {ex.Message}", ex, CameraTypeName);
+                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
                 return false;
             }
         }
@@ -213,42 +176,6 @@ namespace VisionOTA.Hardware.Camera
         /// 通过枚举索引连接相机
         /// </summary>
         public bool ConnectByIndex(int index)
-        {
-            try
-            {
-                // 使用超时机制执行连接
-                var connectTask = System.Threading.Tasks.Task.Run(() => ConnectByIndexInternal(index));
-
-                if (!connectTask.Wait(CONNECT_TIMEOUT_MS))
-                {
-                    FileLogger.Instance.Error($"{CameraTypeName}连接超时: Index={index}, 超时时间={CONNECT_TIMEOUT_MS}ms", null, CameraTypeName);
-                    return false;
-                }
-
-                return connectTask.Result;
-            }
-            catch (AggregateException ae)
-            {
-                var innerEx = ae.InnerException ?? ae;
-                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {innerEx.Message}", innerEx, CameraTypeName);
-                return false;
-            }
-            catch (DllNotFoundException ex)
-            {
-                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 通过索引连接的内部实现
-        /// </summary>
-        private bool ConnectByIndexInternal(int index)
         {
             try
             {
@@ -300,9 +227,14 @@ namespace VisionOTA.Hardware.Camera
 
                 return true;
             }
+            catch (DllNotFoundException ex)
+            {
+                FileLogger.Instance.Error($"度申相机SDK未安装或DLL未找到: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"{CameraTypeName}连接内部错误: {ex.Message}", ex, CameraTypeName);
+                FileLogger.Instance.Error($"{CameraTypeName}连接失败: {ex.Message}", ex, CameraTypeName);
                 return false;
             }
         }
