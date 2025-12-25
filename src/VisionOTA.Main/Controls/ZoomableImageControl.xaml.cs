@@ -186,10 +186,14 @@ namespace VisionOTA.Main.Controls
 
         private void OnContainerSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            // 容器大小变化时，如果是首次有效尺寸，自动适应
-            if (_bitmap != null && e.PreviousSize.Width == 0 && e.NewSize.Width > 0)
+            // 容器大小变化时，如果有图像且之前尺寸无效，自动适应
+            if (_bitmap != null && e.NewSize.Width > 0 && e.NewSize.Height > 0)
             {
-                FitToWindow();
+                // 首次获得有效尺寸，或者尺寸从0变化
+                if (e.PreviousSize.Width <= 0 || e.PreviousSize.Height <= 0)
+                {
+                    FitToWindow();
+                }
             }
         }
 
@@ -349,7 +353,12 @@ namespace VisionOTA.Main.Controls
             double containerW = ImageBorder.ActualWidth;
             double containerH = ImageBorder.ActualHeight;
 
-            if (containerW <= 0 || containerH <= 0) return;
+            // 容器尺寸无效时延迟重试
+            if (containerW <= 0 || containerH <= 0)
+            {
+                Dispatcher.BeginInvoke(new Action(FitToWindow), System.Windows.Threading.DispatcherPriority.Background);
+                return;
+            }
 
             // 计算缩放比例（保持宽高比）
             double scaleX = containerW / _imageWidth;
