@@ -32,6 +32,8 @@ namespace VisionOTA.Hardware.Plc
         private readonly int _port;
         private readonly int _timeout;
         private CancellationTokenSource _heartbeatCts;
+        private int _heartbeatCount = 0;
+        private const int HeartbeatLogInterval = 12; // 每12次心跳记录一次（约60秒）
 
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _disposeCts;
@@ -42,7 +44,7 @@ namespace VisionOTA.Hardware.Plc
         private byte _plcNode = 0;
 
         // 启用详细调试
-        private bool _enableDebug = true;
+        private bool _enableDebug = false;
 
         // 内存区域代码 - Word访问
         private const byte AREA_CIO_WORD = 0xB0;
@@ -298,6 +300,7 @@ namespace VisionOTA.Hardware.Plc
         private void StartHeartbeat()
         {
             _heartbeatCts = new CancellationTokenSource();
+            _heartbeatCount = 0;
             var config = ConfigManager.Instance.Plc;
             var heartbeatInterval = config?.Heartbeat?.Interval ?? 5000;
 
@@ -313,6 +316,13 @@ namespace VisionOTA.Hardware.Plc
                             heartbeatAddress = heartbeatAddress.Split('.')[0];
 
                         await ReadWordAsync(heartbeatAddress);
+                        _heartbeatCount++;
+
+                        // 每隔一段时间记录一次心跳正常
+                        if (_heartbeatCount % HeartbeatLogInterval == 0)
+                        {
+                            FileLogger.Instance.Debug($"PLC心跳正常 (已运行 {_heartbeatCount * heartbeatInterval / 1000}秒)", "FINS");
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -320,7 +330,7 @@ namespace VisionOTA.Hardware.Plc
                     }
                     catch (Exception ex)
                     {
-                        DebugLog($"心跳检测失败: {ex.Message}");
+                        FileLogger.Instance.Warning($"PLC心跳检测失败: {ex.Message}", "FINS");
                         HandleDisconnection();
                         break;
                     }
