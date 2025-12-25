@@ -25,14 +25,7 @@
                    SnapsToDevicePixels="True"
                    UseLayoutRounding="True"
                    HorizontalAlignment="Left"
-                   VerticalAlignment="Top">
-                <Image.RenderTransform>
-                    <TransformGroup>
-                        <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
-                        <TranslateTransform x:Name="TranslateTransform" X="0" Y="0"/>
-                    </TransformGroup>
-                </Image.RenderTransform>
-            </Image>
+                   VerticalAlignment="Top"/>
 
             <!-- 辅助线（中心十字线） -->
             <Canvas x:Name="CrosshairCanvas" IsHitTestVisible="False"
