@@ -33,8 +33,7 @@ namespace VisionOTA.Infrastructure.Config
             TriggerSource = "Continuous",
             TriggerEdge = "RisingEdge",
             Timeout = 5000,
-            LineRate = 10000,
-            LineCount = 4096
+            LineRate = 10000
         };
     }
 
@@ -94,10 +93,5 @@ namespace VisionOTA.Infrastructure.Config
         /// 行频
         /// </summary>
         public int LineRate { get; set; }
-
-        /// <summary>
-        /// 采集行数
-        /// </summary>
-        public int LineCount { get; set; }
     }
 }

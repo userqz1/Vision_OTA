@@ -37,7 +37,6 @@ namespace VisionOTA.Main.ViewModels
 
         // 线扫相机特有参数
         private int _lineRate = 10000;
-        private int _lineCount = 1024;
 
         // 统计数据
         private int _total;
@@ -147,16 +146,6 @@ namespace VisionOTA.Main.ViewModels
             {
                 if (SetProperty(ref _lineRate, value))
                     ApplyLineRate();
-            }
-        }
-
-        public int LineCount
-        {
-            get => _lineCount;
-            set
-            {
-                if (SetProperty(ref _lineCount, value))
-                    ApplyLineCount();
             }
         }
 
@@ -475,22 +464,6 @@ namespace VisionOTA.Main.ViewModels
                 catch (Exception ex)
                 {
                     FileLogger.Instance.Error($"工位{_stationId}设置行频失败: {ex.Message}", ex, "Camera");
-                }
-            }
-        }
-
-        private void ApplyLineCount()
-        {
-            if (_camera == null || !IsConnected) return;
-            if (_camera is ILineCamera lineCamera)
-            {
-                try
-                {
-                    lineCamera.SetLineCount(LineCount);
-                }
-                catch (Exception ex)
-                {
-                    FileLogger.Instance.Error($"工位{_stationId}设置行数失败: {ex.Message}", ex, "Camera");
                 }
             }
         }

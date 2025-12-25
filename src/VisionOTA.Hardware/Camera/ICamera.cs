@@ -278,15 +278,5 @@ namespace VisionOTA.Hardware.Camera
         /// 获取行频
         /// </summary>
         int GetLineRate();
-
-        /// <summary>
-        /// 设置采集行数
-        /// </summary>
-        bool SetLineCount(int lineCount);
-
-        /// <summary>
-        /// 获取采集行数
-        /// </summary>
-        int GetLineCount();
     }
 }

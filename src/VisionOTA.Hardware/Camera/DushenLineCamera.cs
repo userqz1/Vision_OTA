@@ -72,17 +72,5 @@ namespace VisionOTA.Hardware.Camera
             return _lineRate;
         }
 
-        // LineCount 相关方法保留空实现以兼容接口
-        public bool SetLineCount(int lineCount)
-        {
-            // 使用相机默认配置，不设置行数
-            return true;
-        }
-
-        public int GetLineCount()
-        {
-            // 返回0表示使用默认值
-            return 0;
-        }
     }
 }

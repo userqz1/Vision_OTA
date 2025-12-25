@@ -251,11 +251,9 @@
                     <TextBlock Grid.Row="3" Grid.Column="2" Text="增益:" Style="{StaticResource LabelStyle}"/>
                     <TextBox Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding Station2.Gain}" Style="{StaticResource InputStyle}"/>
 
-                    <!-- 第5行: 行频 + 行数 -->
+                    <!-- 第5行: 行频 -->
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="行频:" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Station2.LineRate}" Style="{StaticResource InputStyle}"/>
-                    <TextBlock Grid.Row="4" Grid.Column="2" Text="行数:" Style="{StaticResource LabelStyle}"/>
-                    <TextBox Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding Station2.LineCount}" Style="{StaticResource InputStyle}"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Station2.LineRate}" Style="{StaticResource InputStyle}"/>
 
                     <!-- 第6行: 触发源 -->
                     <TextBlock Grid.Row="5" Grid.Column="0" Text="触发源:" Style="{StaticResource LabelStyle}"/>

@@ -230,7 +230,6 @@ namespace VisionOTA.Main.ViewModels
             Station2.Exposure = config.Station2.Exposure;
             Station2.Gain = config.Station2.Gain;
             Station2.LineRate = config.Station2.LineRate;
-            Station2.LineCount = config.Station2.LineCount;
             Station2.TriggerSource = ConvertConfigToTriggerSource(config.Station2.TriggerSource);
         }
 
@@ -281,7 +280,6 @@ namespace VisionOTA.Main.ViewModels
                 config.Station2.Exposure = Station2.Exposure;
                 config.Station2.Gain = Station2.Gain;
                 config.Station2.LineRate = Station2.LineRate;
-                config.Station2.LineCount = Station2.LineCount;
                 config.Station2.TriggerSource = ConvertTriggerSourceToConfig(Station2.TriggerSource);
 
                 ConfigManager.Instance.SaveCameraConfig();
