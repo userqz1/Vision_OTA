@@ -864,38 +864,85 @@ namespace VisionOTA.Hardware.Plc
         public async Task<bool> WriteBitAsync(string address, bool value)
         {
             if (!_isConnected)
+            {
+                FileLogger.Instance.Warning($"写入位失败 {address}: PLC未连接", "FINS");
                 return false;
+            }
 
             try
             {
                 var (wordCode, bitCode, addr, bit, hasBit) = ParseAddressEx(address);
                 if (!hasBit) bit = 0;
 
-                // 读取-修改-写入
-                var readCmd = BuildReadCommand(wordCode, addr, 0, 1);
-                var response = await SendAndReceiveAsync(readCmd, 2);
+                DebugLog($"写入位 {address} = {value}, 解析: BitArea=0x{bitCode:X2}, Addr={addr}, Bit={bit}");
 
-                int dataOffset = 30;  // TCP头(16) + FINS头(10) + 命令码(2) + 响应码(2)
-                ushort word = (ushort)((response[dataOffset] << 8) | response[dataOffset + 1]);
-
-                if (value)
-                    word |= (ushort)(1 << bit);
-                else
-                    word &= (ushort)~(1 << bit);
-
-                byte[] data = new byte[] { (byte)(word >> 8), (byte)(word & 0xFF) };
-
-                DebugLog($"写入位 {address} = {value}");
-
-                var writeCmd = BuildWriteCommand(wordCode, addr, 0, data);
+                // 使用直接位写入命令
+                byte[] data = new byte[] { (byte)(value ? 0x01 : 0x00) };
+                var writeCmd = BuildBitWriteCommand(bitCode, addr, bit, data);
                 await SendAndReceiveAsync(writeCmd, 0);
+
+                DebugLog($"写入位成功 {address} = {value}");
                 return true;
             }
             catch (Exception ex)
             {
-                DebugLog($"写入位失败 {address}: {ex.Message}");
+                FileLogger.Instance.Error($"写入位失败 {address}: {ex.Message}", ex, "FINS");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 构建位写入命令
+        /// </summary>
+        private byte[] BuildBitWriteCommand(byte bitAreaCode, ushort address, byte bit, byte[] data)
+        {
+            int count = data.Length;  // 位写入时，count 是位数
+            int finsLen = 18 + data.Length;  // FINS头(10) + 命令码(2) + 参数(6) + 数据
+            int tcpPayloadLen = 8 + finsLen;
+
+            byte[] cmd = new byte[16 + finsLen];
+            int i = 0;
+
+            // TCP头
+            cmd[i++] = 0x46; cmd[i++] = 0x49; cmd[i++] = 0x4E; cmd[i++] = 0x53;
+            cmd[i++] = (byte)(tcpPayloadLen >> 24);
+            cmd[i++] = (byte)(tcpPayloadLen >> 16);
+            cmd[i++] = (byte)(tcpPayloadLen >> 8);
+            cmd[i++] = (byte)(tcpPayloadLen & 0xFF);
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x02;
+            cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00; cmd[i++] = 0x00;
+
+            // FINS头
+            cmd[i++] = 0x80;
+            cmd[i++] = 0x00;
+            cmd[i++] = 0x02;
+            cmd[i++] = 0x00;
+            cmd[i++] = _plcNode;
+            cmd[i++] = 0x00;
+            cmd[i++] = 0x00;
+            cmd[i++] = _pcNode;
+            cmd[i++] = 0x00;
+            cmd[i++] = GetNextSid();
+
+            // 命令码: 0102 = Memory Area Write
+            cmd[i++] = 0x01;
+            cmd[i++] = 0x02;
+
+            // 参数 - 使用位区域代码
+            cmd[i++] = bitAreaCode;                   // 位区域代码 (如 0x30 for CIO Bit)
+            cmd[i++] = (byte)(address >> 8);          // 地址高字节
+            cmd[i++] = (byte)(address & 0xFF);        // 地址低字节
+            cmd[i++] = bit;                           // 位地址
+            cmd[i++] = (byte)(count >> 8);            // 数量高字节
+            cmd[i++] = (byte)(count & 0xFF);          // 数量低字节
+
+            // 数据
+            Array.Copy(data, 0, cmd, i, data.Length);
+
+            DebugLog($"构建位写入命令: BitArea=0x{bitAreaCode:X2}, Addr={address}, Bit={bit}, Count={count}");
+            DebugLog($"完整命令: {BytesToHex(cmd)}");
+
+            return cmd;
         }
 
         public async Task<float> ReadFloatAsync(string address)
