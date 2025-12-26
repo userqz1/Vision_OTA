@@ -76,5 +76,12 @@ namespace VisionOTA.Core.Interfaces
         /// </summary>
         /// <param name="stationId">工位ID</param>
         Task<Bitmap> TriggerCaptureAsync(int stationId);
+
+        /// <summary>
+        /// 发送测试触发信号到PLC
+        /// </summary>
+        /// <param name="stationId">工位ID (1=面阵, 2=线扫)</param>
+        /// <returns>是否成功</returns>
+        Task<bool> SendTestTriggerAsync(int stationId);
     }
 }
