@@ -215,15 +215,11 @@
 
             <!-- 侧边栏 -->
             <Border Grid.Column="2" Style="{StaticResource Card}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
 
                     <!-- 最新结果 -->
-                    <StackPanel Grid.Row="0">
+                    <StackPanel>
                         <TextBlock Text="当前工位检测结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
 
                         <!-- 工位1结果 - 显示角度1 -->
@@ -373,7 +369,7 @@
                     </StackPanel>
 
                     <!-- 功能菜单 -->
-                    <StackPanel Grid.Row="1">
+                    <StackPanel Margin="0,16,0,0">
                         <TextBlock Text="功能菜单" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
 
                         <Button Content="相机设置"
@@ -409,7 +405,7 @@
                     </StackPanel>
 
                     <!-- 设备状态 -->
-                    <StackPanel Grid.Row="2">
+                    <StackPanel Margin="0,16,0,0">
                         <TextBlock Text="设备状态" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,8">
@@ -448,7 +444,9 @@
                             <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding VisionStatusColor}"/>
                         </Grid>
                     </StackPanel>
-                </Grid>
+
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 

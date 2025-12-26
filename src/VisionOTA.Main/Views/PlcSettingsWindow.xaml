@@ -50,16 +50,16 @@
 
     <Grid Margin="15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- 可滚动内容区 -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+
         <!-- 连接配置 -->
-        <GroupBox Grid.Row="0" Header="连接配置" Style="{StaticResource GroupBoxStyle}">
+        <GroupBox Header="连接配置" Style="{StaticResource GroupBoxStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="60"/>
@@ -84,7 +84,7 @@
         </GroupBox>
 
         <!-- 输出地址 -->
-        <GroupBox Grid.Row="1" Header="输出地址" Style="{StaticResource GroupBoxStyle}">
+        <GroupBox Header="输出地址" Style="{StaticResource GroupBoxStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -116,7 +116,7 @@
         </GroupBox>
 
         <!-- 输入地址 -->
-        <GroupBox Grid.Row="2" Header="输入地址" Style="{StaticResource GroupBoxStyle}">
+        <GroupBox Header="输入地址" Style="{StaticResource GroupBoxStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -148,7 +148,7 @@
         </GroupBox>
 
         <!-- 测试触发地址 -->
-        <GroupBox Grid.Row="3" Header="测试触发地址" Style="{StaticResource GroupBoxStyle}">
+        <GroupBox Header="测试触发地址" Style="{StaticResource GroupBoxStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -180,13 +180,16 @@
         </GroupBox>
 
         <!-- 全部读取按钮 -->
-        <Button Grid.Row="4" Content="读取全部" Command="{Binding ReadAllCommand}"
+        <Button Content="读取全部" Command="{Binding ReadAllCommand}"
                 Style="{StaticResource SecondaryButtonStyle}"
                 Width="100" Height="32"
-                HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                HorizontalAlignment="Left" Margin="0,10,0,0"/>
+
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- 底部按钮 -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource ButtonStyle}" Width="90"/>
             <Button Content="关闭" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="90" Margin="10,0,0,0"/>
         </StackPanel>
