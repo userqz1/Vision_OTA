@@ -151,7 +151,6 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
@@ -170,11 +169,6 @@
                                     <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
                                     <TextBlock Text="{Binding Station1.OkRate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
                                 </StackPanel>
-                                <Button Grid.Column="4" Content="测试触发"
-                                        Command="{Binding TestTriggerStation1Command}"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Width="80" Height="32" Margin="16,0,0,0"
-                                        VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
 
@@ -195,7 +189,6 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
@@ -214,11 +207,6 @@
                                     <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
                                     <TextBlock Text="{Binding Station2.OkRate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
                                 </StackPanel>
-                                <Button Grid.Column="4" Content="测试触发"
-                                        Command="{Binding TestTriggerStation2Command}"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Width="80" Height="32" Margin="16,0,0,0"
-                                        VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
                     </Grid>
@@ -236,7 +224,19 @@
 
                     <!-- 最新结果 -->
                     <StackPanel Grid.Row="0">
-                        <TextBlock Text="当前工位检测结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
+                        <TextBlock Text="当前工位检测结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
+
+                        <!-- 测试触发按钮 -->
+                        <Button Content="测试触发 (面阵)"
+                                Command="{Binding TestTriggerStation1Command}"
+                                Style="{StaticResource SecondaryButton}"
+                                Height="32" Margin="0,0,0,8"
+                                Visibility="{Binding IsChecked, ElementName=MainStation1Tab, Converter={StaticResource BoolToVisibility}}"/>
+                        <Button Content="测试触发 (线扫)"
+                                Command="{Binding TestTriggerStation2Command}"
+                                Style="{StaticResource SecondaryButton}"
+                                Height="32" Margin="0,0,0,8"
+                                Visibility="{Binding IsChecked, ElementName=MainStation2Tab, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- 工位1结果 - 显示角度1 -->
                         <Border Background="{Binding Station1.ResultBackground}"
