@@ -53,6 +53,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -146,14 +147,46 @@
             </Grid>
         </GroupBox>
 
+        <!-- 测试触发地址 -->
+        <GroupBox Grid.Row="3" Header="测试触发地址" Style="{StaticResource GroupBoxStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 表头 -->
+                <Grid Grid.Row="0" Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="40"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="名称" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="地址" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="2" Text="类型" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="3" Text="当前值" Style="{StaticResource LabelStyle}" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="5" Text="写入值" Style="{StaticResource LabelStyle}" FontWeight="Bold"/>
+                </Grid>
+
+                <!-- 测试触发地址列表 -->
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding TestTriggerAddresses}"
+                              ItemTemplate="{StaticResource PlcAddressRowTemplate}"/>
+            </Grid>
+        </GroupBox>
+
         <!-- 全部读取按钮 -->
-        <Button Grid.Row="3" Content="读取全部" Command="{Binding ReadAllCommand}"
+        <Button Grid.Row="4" Content="读取全部" Command="{Binding ReadAllCommand}"
                 Style="{StaticResource SecondaryButtonStyle}"
                 Width="100" Height="32"
                 HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
         <!-- 底部按钮 -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="保存配置" Command="{Binding SaveCommand}" Style="{StaticResource ButtonStyle}" Width="90"/>
             <Button Content="关闭" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButtonStyle}" Width="90" Margin="10,0,0,0"/>
         </StackPanel>

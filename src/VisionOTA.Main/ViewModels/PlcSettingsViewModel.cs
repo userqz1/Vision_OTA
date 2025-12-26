@@ -37,6 +37,11 @@ namespace VisionOTA.Main.ViewModels
         public ObservableCollection<PlcAddressViewModel> InputAddresses { get; } = new ObservableCollection<PlcAddressViewModel>();
 
         /// <summary>
+        /// 测试触发地址集合
+        /// </summary>
+        public ObservableCollection<PlcAddressViewModel> TestTriggerAddresses { get; } = new ObservableCollection<PlcAddressViewModel>();
+
+        /// <summary>
         /// 支持的数据类型
         /// </summary>
         public List<string> DataTypes { get; } = new List<string>
@@ -115,6 +120,10 @@ namespace VisionOTA.Main.ViewModels
 
             // 输入地址
             InputAddresses.Add(new PlcAddressViewModel("瓶身旋转角度", () => _plc, RefreshAddressCommands));
+
+            // 测试触发地址
+            TestTriggerAddresses.Add(new PlcAddressViewModel("工位1触发(面阵)", () => _plc, RefreshAddressCommands));
+            TestTriggerAddresses.Add(new PlcAddressViewModel("工位2触发(线扫)", () => _plc, RefreshAddressCommands));
         }
 
         private void RefreshAddressCommands()
@@ -124,6 +133,10 @@ namespace VisionOTA.Main.ViewModels
                 addr.RefreshCommands();
             }
             foreach (var addr in InputAddresses)
+            {
+                addr.RefreshCommands();
+            }
+            foreach (var addr in TestTriggerAddresses)
             {
                 addr.RefreshCommands();
             }
@@ -157,6 +170,16 @@ namespace VisionOTA.Main.ViewModels
             {
                 InputAddresses[0].Address = config.InputAddresses.RotationAngle.Address;
                 InputAddresses[0].DataType = config.InputAddresses.RotationAngle.DataType;
+            }
+
+            // 测试触发地址
+            if (TestTriggerAddresses.Count >= 2)
+            {
+                TestTriggerAddresses[0].Address = config.TestTrigger.Station1Trigger.Address;
+                TestTriggerAddresses[0].DataType = config.TestTrigger.Station1Trigger.DataType;
+
+                TestTriggerAddresses[1].Address = config.TestTrigger.Station2Trigger.Address;
+                TestTriggerAddresses[1].DataType = config.TestTrigger.Station2Trigger.DataType;
             }
         }
 
@@ -192,7 +215,7 @@ namespace VisionOTA.Main.ViewModels
                 IsConnected = false;
 
                 // 清空所有当前值
-                foreach (var addr in OutputAddresses.Concat(InputAddresses))
+                foreach (var addr in OutputAddresses.Concat(InputAddresses).Concat(TestTriggerAddresses))
                 {
                     addr.CurrentValue = "--";
                 }
@@ -207,7 +230,7 @@ namespace VisionOTA.Main.ViewModels
 
         private async Task ReadAllAsync()
         {
-            foreach (var addr in OutputAddresses.Concat(InputAddresses))
+            foreach (var addr in OutputAddresses.Concat(InputAddresses).Concat(TestTriggerAddresses))
             {
                 await addr.ReadAsync();
             }
@@ -246,6 +269,18 @@ namespace VisionOTA.Main.ViewModels
                     config.InputAddresses.RotationAngle.Address = InputAddresses[0].Address;
                     config.InputAddresses.RotationAngle.DataType = InputAddresses[0].DataType;
                     config.InputAddresses.RotationAngle.Description = "瓶身旋转角度（启动时读取写入VisionMaster）";
+                }
+
+                // 更新测试触发地址
+                if (TestTriggerAddresses.Count >= 2)
+                {
+                    config.TestTrigger.Station1Trigger.Address = TestTriggerAddresses[0].Address;
+                    config.TestTrigger.Station1Trigger.DataType = TestTriggerAddresses[0].DataType;
+                    config.TestTrigger.Station1Trigger.Description = "工位1(面阵)测试触发";
+
+                    config.TestTrigger.Station2Trigger.Address = TestTriggerAddresses[1].Address;
+                    config.TestTrigger.Station2Trigger.DataType = TestTriggerAddresses[1].DataType;
+                    config.TestTrigger.Station2Trigger.Description = "工位2(线扫)测试触发";
                 }
 
                 // 保存到文件
