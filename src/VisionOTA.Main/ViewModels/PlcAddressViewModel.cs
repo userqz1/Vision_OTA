@@ -181,8 +181,6 @@ namespace VisionOTA.Main.ViewModels
                 if (success)
                 {
                     FileLogger.Instance.Info($"写入PLC地址 {Address}: {WriteValue}", "PLC");
-                    // 写入后读取验证
-                    await ReadAsync();
                 }
                 else
                 {
