@@ -215,11 +215,15 @@
 
             <!-- 侧边栏 -->
             <Border Grid.Column="2" Style="{StaticResource Card}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
                     <!-- 最新结果 -->
-                    <StackPanel>
+                    <StackPanel Grid.Row="0">
                         <TextBlock Text="当前工位检测结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
 
                         <!-- 工位1结果 - 显示角度1 -->
@@ -369,34 +373,34 @@
                     </StackPanel>
 
                     <!-- 功能菜单 -->
-                    <StackPanel Margin="0,16,0,0">
-                        <TextBlock Text="功能菜单" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,16"/>
+                    <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                        <TextBlock Text="功能菜单" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,8"/>
 
                         <Button Content="相机设置"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenCameraSettingsCommand}"
                                 HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,4"/>
                         <Button Content="PLC 设置"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenPlcSettingsCommand}"
                                 HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,4"/>
                         <Button Content="算法设置"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenVisionSettingsCommand}"
                                 HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,4"/>
                         <Button Content="统计报表"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenStatisticsCommand}"
                                 HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,4"/>
                         <Button Content="系统日志"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenLogCommand}"
                                 HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,4"/>
                         <Button Content="用户管理"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenUserManagementCommand}"
@@ -405,10 +409,10 @@
                     </StackPanel>
 
                     <!-- 设备状态 -->
-                    <StackPanel Margin="0,16,0,0">
-                        <TextBlock Text="设备状态" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
+                    <StackPanel Grid.Row="2" Margin="0,12,0,0">
+                        <TextBlock Text="设备状态" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,6"/>
 
-                        <Grid Margin="0,0,0,8">
+                        <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -417,7 +421,7 @@
                             <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding PlcStatusColor}"/>
                         </Grid>
 
-                        <Grid Margin="0,0,0,8">
+                        <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -426,7 +430,7 @@
                             <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding Camera1StatusColor}"/>
                         </Grid>
 
-                        <Grid Margin="0,0,0,8">
+                        <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -445,8 +449,7 @@
                         </Grid>
                     </StackPanel>
 
-                    </StackPanel>
-                </ScrollViewer>
+                </Grid>
             </Border>
         </Grid>
 
