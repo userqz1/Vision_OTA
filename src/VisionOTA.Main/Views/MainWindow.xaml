@@ -226,18 +226,6 @@
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="当前工位检测结果" Style="{StaticResource SubHeaderLabel}" Margin="0,0,0,12"/>
 
-                        <!-- 测试触发按钮 -->
-                        <Button Content="测试触发 (面阵)"
-                                Command="{Binding TestTriggerStation1Command}"
-                                Style="{StaticResource SecondaryButton}"
-                                Height="32" Margin="0,0,0,8"
-                                Visibility="{Binding IsChecked, ElementName=MainStation1Tab, Converter={StaticResource BoolToVisibility}}"/>
-                        <Button Content="测试触发 (线扫)"
-                                Command="{Binding TestTriggerStation2Command}"
-                                Style="{StaticResource SecondaryButton}"
-                                Height="32" Margin="0,0,0,8"
-                                Visibility="{Binding IsChecked, ElementName=MainStation2Tab, Converter={StaticResource BoolToVisibility}}"/>
-
                         <!-- 工位1结果 - 显示角度1 -->
                         <Border Background="{Binding Station1.ResultBackground}"
                                 CornerRadius="4"
@@ -249,11 +237,20 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="瓶底定位 - 面阵相机"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="White" Margin="0,0,0,8"/>
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <TextBlock Text="瓶底定位 - 面阵相机"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="White" VerticalAlignment="Center"/>
+                                    <Button Content="测试触发"
+                                            Command="{Binding TestTriggerStation1Command}"
+                                            HorizontalAlignment="Right"
+                                            FontSize="11" Padding="8,3"
+                                            Background="#FFFFFF" Foreground="#333333"
+                                            BorderThickness="0" Cursor="Hand"/>
+                                </Grid>
 
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4">
                                     <TextBlock Text="检测结果: "
@@ -286,11 +283,20 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="瓶身定位 - 线扫相机"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="White" Margin="0,0,0,8"/>
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <TextBlock Text="瓶身定位 - 线扫相机"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="White" VerticalAlignment="Center"/>
+                                    <Button Content="测试触发"
+                                            Command="{Binding TestTriggerStation2Command}"
+                                            HorizontalAlignment="Right"
+                                            FontSize="11" Padding="8,3"
+                                            Background="#FFFFFF" Foreground="#333333"
+                                            BorderThickness="0" Cursor="Hand"/>
+                                </Grid>
 
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4">
                                     <TextBlock Text="检测结果: "
