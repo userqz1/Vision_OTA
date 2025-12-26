@@ -24,6 +24,11 @@ namespace VisionOTA.Infrastructure.Config
         /// 心跳配置
         /// </summary>
         public PlcHeartbeatConfig Heartbeat { get; set; } = new PlcHeartbeatConfig();
+
+        /// <summary>
+        /// 测试触发配置
+        /// </summary>
+        public PlcTestTriggerConfig TestTrigger { get; set; } = new PlcTestTriggerConfig();
     }
 
     /// <summary>
@@ -126,5 +131,31 @@ namespace VisionOTA.Infrastructure.Config
     {
         public string Address { get; set; } = "D4410";
         public int Interval { get; set; } = 1000;
+    }
+
+    /// <summary>
+    /// 测试触发配置
+    /// </summary>
+    public class PlcTestTriggerConfig
+    {
+        /// <summary>
+        /// 工位1(面阵)测试触发地址
+        /// </summary>
+        public PlcAddressItem Station1Trigger { get; set; } = new PlcAddressItem
+        {
+            Address = "CIO211.12",
+            DataType = "BOOL",
+            Description = "工位1(面阵)测试触发"
+        };
+
+        /// <summary>
+        /// 工位2(线扫)测试触发地址
+        /// </summary>
+        public PlcAddressItem Station2Trigger { get; set; } = new PlcAddressItem
+        {
+            Address = "CIO211.11",
+            DataType = "BOOL",
+            Description = "工位2(线扫)测试触发"
+        };
     }
 }

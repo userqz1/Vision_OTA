@@ -97,6 +97,51 @@ namespace VisionOTA.Core.Services
         }
 
         /// <summary>
+        /// 发送测试触发信号到PLC
+        /// </summary>
+        /// <param name="stationId">工位ID (1=面阵, 2=线扫)</param>
+        /// <returns>是否成功</returns>
+        public async Task<bool> SendTestTriggerAsync(int stationId)
+        {
+            if (_plc == null || !_plc.IsConnected)
+            {
+                FileLogger.Instance.Warning($"PLC未连接，无法发送工位{stationId}测试触发", "Inspection");
+                return false;
+            }
+
+            try
+            {
+                var config = ConfigManager.Instance.Plc;
+                var triggerConfig = stationId == 1
+                    ? config.TestTrigger.Station1Trigger
+                    : config.TestTrigger.Station2Trigger;
+
+                var address = triggerConfig.Address;
+
+                // 发送脉冲信号：置1，延时100ms，置0
+                var success = await _plc.WriteBitAsync(address, true);
+                if (success)
+                {
+                    FileLogger.Instance.Info($"工位{stationId}测试触发已发送: {address} = 1", "Inspection");
+                    await Task.Delay(100);
+                    await _plc.WriteBitAsync(address, false);
+                    FileLogger.Instance.Debug($"工位{stationId}测试触发复位: {address} = 0", "Inspection");
+                }
+                else
+                {
+                    FileLogger.Instance.Warning($"工位{stationId}测试触发失败: 写入 {address} 失败", "Inspection");
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"工位{stationId}测试触发异常: {ex.Message}", ex, "Inspection");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 根据数据类型写入PLC
         /// </summary>
         private async Task<bool> WriteByTypeAsync(string address, string dataType, int value)

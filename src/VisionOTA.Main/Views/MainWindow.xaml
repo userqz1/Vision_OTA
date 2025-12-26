@@ -151,6 +151,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
@@ -169,6 +170,11 @@
                                     <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
                                     <TextBlock Text="{Binding Station1.OkRate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
                                 </StackPanel>
+                                <Button Grid.Column="4" Content="测试触发"
+                                        Command="{Binding TestTriggerStation1Command}"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Width="80" Height="32" Margin="16,0,0,0"
+                                        VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
 
@@ -189,6 +195,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0">
@@ -207,6 +214,11 @@
                                     <TextBlock Text="OK率" Style="{StaticResource BodyLabel}"/>
                                     <TextBlock Text="{Binding Station2.OkRate, StringFormat={}{0:F1}%}" Style="{StaticResource DataLabel}"/>
                                 </StackPanel>
+                                <Button Grid.Column="4" Content="测试触发"
+                                        Command="{Binding TestTriggerStation2Command}"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Width="80" Height="32" Margin="16,0,0,0"
+                                        VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
                     </Grid>

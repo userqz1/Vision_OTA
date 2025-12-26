@@ -179,6 +179,8 @@ namespace VisionOTA.Main.ViewModels
         public ICommand OpenStatisticsCommand { get; }
         public ICommand OpenLogCommand { get; }
         public ICommand OpenUserManagementCommand { get; }
+        public ICommand TestTriggerStation1Command { get; }
+        public ICommand TestTriggerStation2Command { get; }
 
         #endregion
 
@@ -204,6 +206,8 @@ namespace VisionOTA.Main.ViewModels
             OpenStatisticsCommand = new RelayCommand(_ => OpenStatistics());
             OpenLogCommand = new RelayCommand(_ => OpenLog());
             OpenUserManagementCommand = new RelayCommand(_ => OpenUserManagement(), _ => IsAdmin);
+            TestTriggerStation1Command = new RelayCommand(async _ => await SendTestTrigger(1), _ => CanOperate);
+            TestTriggerStation2Command = new RelayCommand(async _ => await SendTestTrigger(2), _ => CanOperate);
 
             // 订阅事件
             _inspectionService.InspectionCompleted += OnInspectionCompleted;
@@ -360,6 +364,15 @@ namespace VisionOTA.Main.ViewModels
         {
             var window = new Views.UserManagementWindow { Owner = Application.Current.MainWindow };
             window.ShowDialog();
+        }
+
+        private async Task SendTestTrigger(int stationId)
+        {
+            var success = await _inspectionService.SendTestTriggerAsync(stationId);
+            if (!success)
+            {
+                MessageBox.Show($"工位{stationId}测试触发发送失败，请检查PLC连接", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         #endregion
