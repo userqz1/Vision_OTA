@@ -245,6 +245,8 @@ namespace VisionOTA.Main.ViewModels
             _camera.ImageReceived += OnImageReceived;
             _camera.ConnectionChanged += OnConnectionChanged;
 
+            FileLogger.Instance.Info($"工位{_stationId} StationViewModel绑定相机, 实例HashCode={camera.GetHashCode()}", "Camera");
+
             // 同步当前状态
             SyncCameraStatus();
         }
@@ -494,6 +496,7 @@ namespace VisionOTA.Main.ViewModels
 
         private void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
+            FileLogger.Instance.Debug($"工位{_stationId} StationViewModel收到图像: {e.Width}x{e.Height}", "Camera");
             try
             {
                 var bitmapSource = ConvertToBitmapSource(e.Image);

@@ -109,12 +109,20 @@ namespace VisionOTA.Hardware.Camera
                 {
                     try
                     {
+                        // 先停止采集
+                        if (camera.IsGrabbing)
+                        {
+                            camera.StopGrab();
+                        }
+                        // 再释放资源
                         camera?.Dispose();
                     }
                     catch { }
                 }
                 _cameras.Clear();
             }
+
+            VisionOTA.Infrastructure.Logging.FileLogger.Instance.Info("CameraManager已释放所有相机资源", "Camera");
         }
     }
 }

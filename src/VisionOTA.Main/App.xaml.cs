@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using VisionOTA.Hardware.Camera;
 using VisionOTA.Infrastructure.Logging;
@@ -14,13 +15,21 @@ namespace VisionOTA.Main
 
         protected override void OnExit(ExitEventArgs e)
         {
-            FileLogger.Instance.Info("VisionOTA 退出", "App");
+            try
+            {
+                FileLogger.Instance.Info("VisionOTA 退出", "App");
 
-            // 释放相机资源
-            CameraManager.Instance.Dispose();
+                // 释放相机资源
+                CameraManager.Instance.Dispose();
 
-            FileLogger.Instance.Dispose();
+                FileLogger.Instance.Dispose();
+            }
+            catch { }
+
             base.OnExit(e);
+
+            // 强制终止进程，确保所有后台线程都被终止
+            Environment.Exit(0);
         }
     }
 }

@@ -27,6 +27,7 @@ namespace VisionOTA.Core.Services
         private IPlcCommunication _plc;
         private readonly IStatisticsService _statisticsService;
         private CancellationTokenSource _runCts;
+        private CancellationTokenSource _reconnectCts;
         private int _consecutiveFailures;
         private bool _isDisposed;
 
@@ -180,10 +181,13 @@ namespace VisionOTA.Core.Services
                 _cameras[2] = CameraManager.Instance.GetCamera(2);
 
                 // 注册相机事件
-                foreach (var camera in _cameras.Values)
+                foreach (var kvp in _cameras)
                 {
+                    var stationId = kvp.Key;
+                    var camera = kvp.Value;
                     camera.ImageReceived += OnImageReceived;
                     camera.ConnectionChanged += OnCameraConnectionChanged;
+                    FileLogger.Instance.Info($"工位{stationId}相机事件已注册, 实例HashCode={camera.GetHashCode()}", "Inspection");
                 }
 
                 // 使用配置的userId连接相机，并应用触发源设置
@@ -640,7 +644,13 @@ namespace VisionOTA.Core.Services
         private async void OnImageReceived(object sender, ImageReceivedEventArgs e)
         {
             // 如果已释放，直接返回
-            if (_isDisposed) return;
+            if (_isDisposed)
+            {
+                FileLogger.Instance.Debug("InspectionService已释放，忽略图像", "Inspection");
+                return;
+            }
+
+            FileLogger.Instance.Debug($"InspectionService收到图像事件: {e.Width}x{e.Height}", "Inspection");
 
             // 根据相机实例确定工位ID
             int stationId = 0;
@@ -653,7 +663,13 @@ namespace VisionOTA.Core.Services
                 }
             }
 
-            if (stationId == 0) return;
+            if (stationId == 0)
+            {
+                FileLogger.Instance.Warning("收到图像但无法确定工位ID（相机实例不匹配）", "Inspection");
+                return;
+            }
+
+            FileLogger.Instance.Debug($"工位{stationId}收到图像, 当前状态: {CurrentState}", "Inspection");
 
             // 发布图像接收事件（UI更新）
             EventAggregator.Instance.Publish(new ImageReceivedEvent
@@ -667,7 +683,12 @@ namespace VisionOTA.Core.Services
             // 如果系统正在运行且是硬件触发模式，直接执行检测
             if (!_isDisposed && CurrentState == SystemState.Running && e.Image != null)
             {
+                FileLogger.Instance.Info($"工位{stationId}开始执行检测流程", "Inspection");
                 await ProcessImageAsync(stationId, e.Image);
+            }
+            else
+            {
+                FileLogger.Instance.Debug($"工位{stationId}图像不处理: State={CurrentState}, Image={e.Image != null}", "Inspection");
             }
         }
 
@@ -841,26 +862,42 @@ namespace VisionOTA.Core.Services
 
         private void StartPlcReconnect()
         {
+            // 取消之前的重连任务
+            _reconnectCts?.Cancel();
+            _reconnectCts = new CancellationTokenSource();
+            var token = _reconnectCts.Token;
+
             var plcConfig = ConfigManager.Instance.Plc;
             var reconnectInterval = plcConfig.Connection.ReconnectInterval;
 
             Task.Run(async () =>
             {
-                while (!_isDisposed && !_plc.IsConnected)
+                try
                 {
-                    await Task.Delay(reconnectInterval);
-                    if (_isDisposed) break;
-
-                    FileLogger.Instance.Info("尝试重新连接PLC...", "Inspection");
-                    var connected = await _plc.ConnectAsync();
-                    if (connected)
+                    while (!token.IsCancellationRequested && !_isDisposed && !_plc.IsConnected)
                     {
-                        PublishPlcConnectionState(true);
-                        FileLogger.Instance.Info("PLC重连成功", "Inspection");
-                        break;
+                        await Task.Delay(reconnectInterval, token);
+                        if (token.IsCancellationRequested || _isDisposed) break;
+
+                        FileLogger.Instance.Info("尝试重新连接PLC...", "Inspection");
+                        var connected = await _plc.ConnectAsync();
+                        if (connected)
+                        {
+                            PublishPlcConnectionState(true);
+                            FileLogger.Instance.Info("PLC重连成功", "Inspection");
+                            break;
+                        }
                     }
                 }
-            });
+                catch (OperationCanceledException)
+                {
+                    // 正常取消，忽略
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Debug($"PLC重连任务结束: {ex.Message}", "Inspection");
+                }
+            }, token);
         }
 
         public void Dispose()
@@ -870,9 +907,11 @@ namespace VisionOTA.Core.Services
 
             _isDisposed = true; // 先设置标志，防止异步操作继续
 
+            // 取消所有后台任务
             try
             {
                 _runCts?.Cancel();
+                _reconnectCts?.Cancel();
             }
             catch { }
 
@@ -882,6 +921,7 @@ namespace VisionOTA.Core.Services
             try
             {
                 _runCts?.Dispose();
+                _reconnectCts?.Dispose();
             }
             catch { }
 

@@ -706,8 +706,29 @@ namespace VisionOTA.Hardware.Camera
 
         public void Dispose()
         {
-            Disconnect();
-            _grabCts?.Dispose();
+            try
+            {
+                // 先停止采集
+                if (_isGrabbing)
+                {
+                    StopGrab();
+                }
+
+                // 断开连接（会关闭handle，自动取消回调）
+                Disconnect();
+
+                // 清除回调委托引用
+                _streamCallback = null;
+
+                _grabCts?.Dispose();
+                _grabCts = null;
+
+                FileLogger.Instance.Debug($"{CameraTypeName}资源已释放", CameraTypeName);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"{CameraTypeName}释放资源失败: {ex.Message}", ex, CameraTypeName);
+            }
         }
     }
 }
