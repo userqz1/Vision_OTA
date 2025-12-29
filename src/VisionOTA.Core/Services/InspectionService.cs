@@ -463,10 +463,46 @@ namespace VisionOTA.Core.Services
                 _runCts = new CancellationTokenSource();
                 _consecutiveFailures = 0;
 
-                // 启动相机采集
-                foreach (var camera in _cameras.Values)
+                // 检查并重连相机，然后启动采集
+                var cameraConfig = ConfigManager.Instance.Camera;
+                foreach (var kvp in _cameras)
                 {
-                    camera.StartGrab();
+                    var stationId = kvp.Key;
+                    var camera = kvp.Value;
+                    var stationConfig = stationId == 1 ? cameraConfig.Station1 : cameraConfig.Station2;
+
+                    // 如果相机未连接，尝试重连
+                    if (!camera.IsConnected)
+                    {
+                        FileLogger.Instance.Info($"工位{stationId}相机未连接，尝试重连...", "Inspection");
+
+                        if (string.IsNullOrEmpty(stationConfig.UserId))
+                        {
+                            FileLogger.Instance.Warning($"工位{stationId}相机UserId未配置，无法重连", "Inspection");
+                            ErrorOccurred?.Invoke(this, $"工位{stationId}相机未配置");
+                            return false;
+                        }
+
+                        if (!camera.Connect(stationConfig.UserId))
+                        {
+                            FileLogger.Instance.Error($"工位{stationId}相机重连失败", "Inspection");
+                            ErrorOccurred?.Invoke(this, $"工位{stationId}相机连接失败");
+                            return false;
+                        }
+
+                        FileLogger.Instance.Info($"工位{stationId}相机重连成功", "Inspection");
+
+                        // 配置触发源为硬件触发
+                        camera.SetTriggerSource(TriggerSource.Hardware);
+                        FileLogger.Instance.Debug($"工位{stationId}触发源设置为硬件触发", "Inspection");
+                    }
+
+                    // 启动采集
+                    if (!camera.IsGrabbing)
+                    {
+                        camera.StartGrab();
+                        FileLogger.Instance.Debug($"工位{stationId}相机开始采集", "Inspection");
+                    }
                 }
 
                 CurrentState = SystemState.Running;
