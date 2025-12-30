@@ -298,6 +298,17 @@ namespace VisionOTA.Hardware.Camera
 
                 if (_handle != 0)
                 {
+                    // 取消注册流回调（防止回调线程阻止进程退出）
+                    try
+                    {
+                        DVPCamera.dvpRegisterStreamCallback(_handle, null, dvpStreamEvent.STREAM_EVENT_FRAME_THREAD, IntPtr.Zero);
+                        FileLogger.Instance.Debug($"{CameraTypeName}已取消注册流回调", CameraTypeName);
+                    }
+                    catch { }
+
+                    // 等待回调线程结束
+                    Thread.Sleep(100);
+
                     DVPCamera.dvpClose(_handle);
                     _handle = 0;
                 }

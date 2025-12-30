@@ -23,6 +23,18 @@ namespace VisionOTA.Main
             {
                 FileLogger.Instance.Info("App.OnExit 开始...", "App");
 
+                // 确保相机资源完全释放（带超时）
+                var cameraTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        CameraManager.Instance.Dispose();
+                        FileLogger.Instance.Info("App.OnExit: 相机资源已释放", "App");
+                    }
+                    catch { }
+                });
+                cameraTask.Wait(3000);
+
                 // 释放VisionMaster资源（带超时）
                 var visionTask = Task.Run(() =>
                 {
@@ -33,7 +45,6 @@ namespace VisionOTA.Main
                     }
                     catch { }
                 });
-
                 visionTask.Wait(2000);
 
                 FileLogger.Instance.Info("VisionOTA 退出完成", "App");
