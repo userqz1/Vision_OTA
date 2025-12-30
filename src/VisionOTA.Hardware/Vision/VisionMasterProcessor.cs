@@ -416,7 +416,7 @@ namespace VisionOTA.Hardware.Vision
             {
                 // 优先从全局变量读取角度值
                 double? angleFromGlobal = GetAngleFromGlobalVariable();
-                if (angleFromGlobal.HasValue)
+                if (angleFromGlobal.HasValue && !double.IsNaN(angleFromGlobal.Value) && !double.IsInfinity(angleFromGlobal.Value))
                 {
                     result.Angle = angleFromGlobal.Value;
                     result.Found = true;
@@ -455,7 +455,7 @@ namespace VisionOTA.Hardware.Vision
                         extractedAngle = Convert.ToDouble(angleValue);
                     }
 
-                    if (extractedAngle.HasValue)
+                    if (extractedAngle.HasValue && !double.IsNaN(extractedAngle.Value) && !double.IsInfinity(extractedAngle.Value))
                     {
                         result.Angle = extractedAngle.Value;
                         result.Found = true;
@@ -463,6 +463,7 @@ namespace VisionOTA.Hardware.Vision
                     else
                     {
                         result.Found = false;
+                        result.ErrorMessage = "角度值无效(NaN或Infinity)";
                     }
                 }
                 else
