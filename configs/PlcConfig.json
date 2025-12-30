@@ -14,12 +14,12 @@
     "RotationAngle": {
       "Address": "D4402",
       "DataType": "REAL",
-      "Description": "旋转地址"
+      "Description": "定位角度 (OK时输出角度值, NG时输出0)"
     },
     "Result": {
       "Address": "D4404",
       "DataType": "REAL",
-      "Description": "良品地址 (1=OK, 0=NG)"
+      "Description": "检测结果 (2=合格, 3=不合格)"
     }
   },
   "InputAddresses": {

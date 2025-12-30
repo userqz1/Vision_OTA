@@ -913,14 +913,15 @@ namespace VisionOTA.Core.Services
             {
                 var plcConfig = ConfigManager.Instance.Plc;
 
-                // 写入结果 (1.0=OK, 0.0=NG) - REAL类型
-                await _plc.WriteFloatAsync(plcConfig.OutputAddresses.Result.Address, result.IsOk ? 1.0f : 0.0f);
+                // 写入角度值 - OK时写实际角度，NG时写0
+                float angleToWrite = result.IsOk ? (float)result.Angle : 0.0f;
+                await _plc.WriteFloatAsync(plcConfig.OutputAddresses.RotationAngle.Address, angleToWrite);
 
-                // 写入角度值（仅OK时有效）- REAL类型
-                if (result.IsOk)
-                {
-                    await _plc.WriteFloatAsync(plcConfig.OutputAddresses.RotationAngle.Address, (float)result.Angle);
-                }
+                // 写入检测结果 (2=合格, 3=不合格)
+                float resultValue = result.IsOk ? 2.0f : 3.0f;
+                await _plc.WriteFloatAsync(plcConfig.OutputAddresses.Result.Address, resultValue);
+
+                FileLogger.Instance.Info($"工位{result.StationId}PLC写入: 角度={angleToWrite:F2}, 结果={resultValue}({(result.IsOk ? "合格" : "不合格")})", "Inspection");
             }
             catch (Exception ex)
             {
