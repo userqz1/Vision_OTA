@@ -240,6 +240,13 @@ namespace VisionOTA.Hardware.Vision
                 // 提取结果
                 ExtractResult(result);
 
+                // 如果没有结果图像（NG时），使用原图显示
+                if (result.ResultImage == null && image != null)
+                {
+                    result.ResultImage = (Bitmap)image.Clone();
+                    FileLogger.Instance.Debug($"工位{_stationId}NG时使用原图显示", "VisionMaster");
+                }
+
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
                 _lastResult = result;
 
@@ -392,6 +399,7 @@ namespace VisionOTA.Hardware.Vision
                     {
                         Width = width,
                         Height = height,
+                        DataLen = (uint)imageBytes.Length,
                         Pixelformat = (int)vmPixelFormat,
                         ImageData = imageBytes
                     };
@@ -744,6 +752,20 @@ namespace VisionOTA.Hardware.Vision
 
                 // 提取结果
                 ExtractResult(result);
+
+                // 如果没有结果图像（NG时），显示原图
+                if (result.ResultImage == null && !string.IsNullOrEmpty(imagePath))
+                {
+                    try
+                    {
+                        result.ResultImage = new Bitmap(imagePath);
+                        FileLogger.Instance.Debug($"工位{_stationId}NG时使用原图显示", "VisionMaster");
+                    }
+                    catch (Exception ex)
+                    {
+                        FileLogger.Instance.Warning($"工位{_stationId}加载原图失败: {ex.Message}", "VisionMaster");
+                    }
+                }
 
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
                 _lastResult = result;

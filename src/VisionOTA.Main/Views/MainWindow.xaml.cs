@@ -48,7 +48,14 @@ namespace VisionOTA.Main.Views
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _viewModel.Cleanup();
+            try
+            {
+                _viewModel.Cleanup();
+            }
+            catch { }
+
+            // 确保应用程序完全退出
+            Application.Current.Shutdown();
         }
     }
 }

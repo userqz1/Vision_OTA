@@ -562,29 +562,65 @@ namespace VisionOTA.Main.ViewModels
         {
             if (bitmap == null) return null;
 
+            System.Drawing.Imaging.BitmapData bitmapData = null;
             try
             {
-                var bitmapData = bitmap.LockBits(
+                // 根据像素格式选择对应的WPF格式
+                System.Windows.Media.PixelFormat wpfFormat;
+                switch (bitmap.PixelFormat)
+                {
+                    case System.Drawing.Imaging.PixelFormat.Format8bppIndexed:
+                        wpfFormat = PixelFormats.Gray8;
+                        break;
+                    case System.Drawing.Imaging.PixelFormat.Format24bppRgb:
+                        wpfFormat = PixelFormats.Bgr24;
+                        break;
+                    case System.Drawing.Imaging.PixelFormat.Format32bppRgb:
+                        wpfFormat = PixelFormats.Bgr32;
+                        break;
+                    case System.Drawing.Imaging.PixelFormat.Format32bppArgb:
+                    case System.Drawing.Imaging.PixelFormat.Format32bppPArgb:
+                        wpfFormat = PixelFormats.Bgra32;
+                        break;
+                    default:
+                        // 不支持的格式，转换为24位RGB
+                        using (var convertedBitmap = new System.Drawing.Bitmap(bitmap.Width, bitmap.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+                        {
+                            using (var g = System.Drawing.Graphics.FromImage(convertedBitmap))
+                            {
+                                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+                            }
+                            return ConvertToBitmapSource(convertedBitmap);
+                        }
+                }
+
+                bitmapData = bitmap.LockBits(
                     new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
                     System.Drawing.Imaging.ImageLockMode.ReadOnly,
                     bitmap.PixelFormat);
 
                 var bitmapSource = BitmapSource.Create(
                     bitmapData.Width, bitmapData.Height,
-                    bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                    PixelFormats.Bgr24, null,
+                    96, 96,
+                    wpfFormat, null,
                     bitmapData.Scan0,
                     bitmapData.Stride * bitmapData.Height,
                     bitmapData.Stride);
 
-                bitmap.UnlockBits(bitmapData);
                 bitmapSource.Freeze();
-
                 return bitmapSource;
             }
-            catch
+            catch (Exception ex)
             {
+                Infrastructure.Logging.FileLogger.Instance.Warning($"图像转换失败: {ex.Message}, 格式={bitmap.PixelFormat}", "MainViewModel");
                 return null;
+            }
+            finally
+            {
+                if (bitmapData != null)
+                {
+                    bitmap.UnlockBits(bitmapData);
+                }
             }
         }
 
