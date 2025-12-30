@@ -268,8 +268,9 @@ namespace VisionOTA.Hardware.Camera
         protected virtual void InitializeCamera()
         {
             // 注册流回调（必须保持委托引用防止被GC）
+            // 使用STREAM_EVENT_ARRIVED：图像到达后立即回调，延迟最低
             _streamCallback = OnStreamCallback;
-            var status = DVPCamera.dvpRegisterStreamCallback(_handle, _streamCallback, dvpStreamEvent.STREAM_EVENT_FRAME_THREAD, IntPtr.Zero);
+            var status = DVPCamera.dvpRegisterStreamCallback(_handle, _streamCallback, dvpStreamEvent.STREAM_EVENT_ARRIVED, IntPtr.Zero);
             if (status != dvpStatus.DVP_STATUS_OK)
             {
                 FileLogger.Instance.Warning($"{CameraTypeName}注册流回调失败: {status}", CameraTypeName);
@@ -301,7 +302,7 @@ namespace VisionOTA.Hardware.Camera
                     // 取消注册流回调（防止回调线程阻止进程退出）
                     try
                     {
-                        DVPCamera.dvpRegisterStreamCallback(_handle, null, dvpStreamEvent.STREAM_EVENT_FRAME_THREAD, IntPtr.Zero);
+                        DVPCamera.dvpRegisterStreamCallback(_handle, null, dvpStreamEvent.STREAM_EVENT_ARRIVED, IntPtr.Zero);
                         FileLogger.Instance.Debug($"{CameraTypeName}已取消注册流回调", CameraTypeName);
                     }
                     catch { }
