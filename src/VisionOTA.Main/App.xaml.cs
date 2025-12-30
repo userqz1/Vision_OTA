@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -62,8 +63,15 @@ namespace VisionOTA.Main
 
             base.OnExit(e);
 
-            // 强制终止进程，确保所有后台线程都被终止
-            Environment.Exit(0);
+            // 强制终止当前进程（确保所有native线程都被终止）
+            try
+            {
+                Process.GetCurrentProcess().Kill();
+            }
+            catch
+            {
+                Environment.Exit(0);
+            }
         }
     }
 }
