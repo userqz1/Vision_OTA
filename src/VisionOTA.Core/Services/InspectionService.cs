@@ -828,15 +828,13 @@ namespace VisionOTA.Core.Services
         {
             try
             {
-                var startTime = DateTime.Now;
-
                 // 瓶身工位（工位2）检测前，先设置旋转角度
                 if (stationId == 2)
                 {
                     await SetRotationAngleBeforeInspectionAsync();
                 }
 
-                // 1. 执行视觉处理
+                // 1. 执行视觉处理（只提取角度，不获取结果图）
                 if (!_visionProcessors.ContainsKey(stationId) || !_visionProcessors[stationId].IsLoaded)
                 {
                     FileLogger.Instance.Warning($"工位{stationId}视觉处理器未加载", "Inspection");
@@ -854,37 +852,39 @@ namespace VisionOTA.Core.Services
                     Angle = visionResult.Angle,
                     X = visionResult.X,
                     Y = visionResult.Y,
-                    ProcessTimeMs = visionResult.ProcessTimeMs,
-                    ResultImage = visionResult.ResultImage
+                    ProcessTimeMs = visionResult.ProcessTimeMs
                 };
 
-                // 2. 并行执行：统计更新、PLC写入、图片保存
-                var tasks = new List<Task>();
-
-                // 统计更新
-                tasks.Add(Task.Run(() => _statisticsService.AddResult(stationId, result.IsOk)));
-
-                // PLC写入
-                if (_plc.IsConnected)
+                // 2. 优先写入PLC（角度和结果）
+                if (_plc != null && _plc.IsConnected)
                 {
-                    tasks.Add(WritePlcResultAsync(result));
+                    await WritePlcResultAsync(result);
                 }
 
-                // 图片保存
+                // 3. 统计更新
+                _statisticsService.AddResult(stationId, result.IsOk);
+
+                // 4. 获取结果图并保存（在PLC写入后执行）
+                var processor = _visionProcessors[stationId] as VisionMasterProcessor;
+                if (processor != null)
+                {
+                    processor.FillResultImage(visionResult, image);
+                    result.ResultImage = visionResult.ResultImage;
+                }
+
+                // 5. 图片保存（异步）
                 if (result.ResultImage != null)
                 {
-                    tasks.Add(Task.Run(() =>
+                    _ = Task.Run(() =>
                     {
                         result.ImagePath = ImageStorage.Instance.SaveImage(result.ResultImage, stationId, result.IsOk);
-                    }));
+                    });
                 }
 
-                await Task.WhenAll(tasks);
-
-                // 3. 处理连续失败
+                // 6. 处理连续失败
                 HandleConsecutiveFailures(stationId, result.IsOk);
 
-                // 4. 触发完成事件（UI更新）
+                // 7. 触发完成事件（UI更新）
                 InspectionCompleted?.Invoke(this, new InspectionCompletedEventArgs { Result = result });
 
                 EventAggregator.Instance.Publish(new InspectionCompletedEvent

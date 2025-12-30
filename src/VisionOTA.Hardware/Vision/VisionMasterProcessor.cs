@@ -209,61 +209,38 @@ namespace VisionOTA.Hardware.Vision
             var result = new VisionResult();
             var startTime = DateTime.Now;
 
-            FileLogger.Instance.Info($"工位{_stationId}开始执行视觉处理, 流程={_procedureName}, 图像={image?.Width}x{image?.Height}", "VisionMaster");
-
             try
             {
                 if (!_isLoaded || _procedure == null)
                 {
                     result.Found = false;
                     result.ErrorMessage = "流程未加载";
-                    FileLogger.Instance.Error($"工位{_stationId}流程未加载: _isLoaded={_isLoaded}, _procedure={(_procedure != null ? "存在" : "null")}", null, "VisionMaster");
                     return result;
                 }
 
-                // 设置输入图像（如果需要从外部传入图像）
+                // 设置输入图像
                 if (image != null)
                 {
-                    FileLogger.Instance.Debug($"工位{_stationId}准备设置输入图像, 图像源名称={_inputImageSourceName}", "VisionMaster");
                     SetInputImage(image);
-                }
-                else
-                {
-                    FileLogger.Instance.Warning($"工位{_stationId}输入图像为空，将使用流程内部图像源", "VisionMaster");
                 }
 
                 // 执行流程
-                FileLogger.Instance.Debug($"工位{_stationId}开始执行流程 {_procedureName}", "VisionMaster");
                 _procedure.Run();
-                FileLogger.Instance.Debug($"工位{_stationId}流程执行完成", "VisionMaster");
 
-                // 提取结果
-                ExtractResult(result);
-
-                // 如果没有结果图像（NG时），使用原图显示
-                if (result.ResultImage == null && image != null)
-                {
-                    result.ResultImage = (Bitmap)image.Clone();
-                    FileLogger.Instance.Debug($"工位{_stationId}NG时使用原图显示", "VisionMaster");
-                }
+                // 只提取角度（不获取结果图，加快返回速度）
+                ExtractAngleOnly(result);
 
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
                 _lastResult = result;
 
                 FileLogger.Instance.Info($"工位{_stationId}视觉处理完成: Found={result.Found}, Angle={result.Angle:F2}, 耗时={result.ProcessTimeMs:F0}ms", "VisionMaster");
-
-                ProcessCompleted?.Invoke(this, new VisionProcessCompletedEventArgs
-                {
-                    Result = result,
-                    StationId = _stationId
-                });
             }
             catch (VmException ex)
             {
                 result.Found = false;
                 result.ErrorMessage = $"执行失败: 0x{ex.errorCode:X}";
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                FileLogger.Instance.Error($"工位{_stationId} VisionMaster异常: 错误码=0x{ex.errorCode:X}, 流程={_procedureName}, 图像源={_inputImageSourceName}", null, "VisionMaster");
+                FileLogger.Instance.Error($"工位{_stationId} VisionMaster异常: 0x{ex.errorCode:X}", null, "VisionMaster");
                 ProcessError?.Invoke(this, ex);
             }
             catch (Exception ex)
@@ -271,7 +248,7 @@ namespace VisionOTA.Hardware.Vision
                 result.Found = false;
                 result.ErrorMessage = $"执行失败: {ex.Message}";
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                FileLogger.Instance.Error($"工位{_stationId}执行异常: {ex.Message}\n堆栈: {ex.StackTrace}", ex, "VisionMaster");
+                FileLogger.Instance.Error($"工位{_stationId}执行异常: {ex.Message}", ex, "VisionMaster");
                 ProcessError?.Invoke(this, ex);
             }
 
@@ -431,9 +408,9 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 从流程输出提取结果（优先从全局变量读取）
+        /// 从流程输出提取角度（不获取结果图，用于快速返回）
         /// </summary>
-        private void ExtractResult(VisionResult result)
+        private void ExtractAngleOnly(VisionResult result)
         {
             try
             {
@@ -443,30 +420,19 @@ namespace VisionOTA.Hardware.Vision
                 {
                     result.Angle = angleFromGlobal.Value;
                     result.Found = true;
-                    FileLogger.Instance.Info($"工位{_stationId}从全局变量提取角度成功: {result.Angle:F2}", "VisionMaster");
-                    result.ResultImage = GetOutputImage();
                     return;
                 }
 
                 // 备选：从流程输出设置获取角度值
-                // 路径格式: 流程名.Outputs.变量名
                 var anglePath = $"{_procedureName}.Outputs.{_angleOutputName}";
-                FileLogger.Instance.Debug($"工位{_stationId}尝试从流程输出获取角度值，路径: {anglePath}", "VisionMaster");
-
                 var angleValue = VmSolution.Instance[anglePath];
                 if (angleValue != null)
                 {
-                    FileLogger.Instance.Debug($"工位{_stationId}获取到角度值: 类型={angleValue.GetType().Name}, 值={angleValue}", "VisionMaster");
-
                     double? extractedAngle = null;
-
-                    // 尝试从DynamicVmIO获取Value属性
                     var valueProperty = angleValue.GetType().GetProperty("Value");
                     if (valueProperty != null)
                     {
                         var actualValue = valueProperty.GetValue(angleValue);
-                        FileLogger.Instance.Debug($"工位{_stationId}从DynamicVmIO.Value获取: 类型={actualValue?.GetType().Name}, 值={actualValue}", "VisionMaster");
-
                         if (actualValue is Array arr && arr.Length > 0)
                         {
                             var firstElement = arr.GetValue(0);
@@ -493,75 +459,48 @@ namespace VisionOTA.Hardware.Vision
                     {
                         result.Angle = extractedAngle.Value;
                         result.Found = true;
-                        FileLogger.Instance.Info($"工位{_stationId}提取结果成功: 角度={result.Angle:F2}", "VisionMaster");
                     }
                     else
                     {
-                        FileLogger.Instance.Warning($"工位{_stationId}无法从输出中提取角度值", "VisionMaster");
                         result.Found = false;
                     }
                 }
                 else
                 {
-                    FileLogger.Instance.Warning($"工位{_stationId}未获取到角度值，路径: {anglePath}", "VisionMaster");
-
-                    // 探测可能的输出变量名
-                    FileLogger.Instance.Info($"工位{_stationId}开始探测可用输出变量...", "VisionMaster");
-
-                    // 尝试不同路径格式
-                    string[] pathFormats = new[]
-                    {
-                        $"{_procedureName}.Outputs.{_angleOutputName}.Value",
-                        $"{_procedureName}.{_angleOutputName}",
-                        $"{_procedureName}.Output.{_angleOutputName}",
-                        $"Outputs.{_angleOutputName}.Value"
-                    };
-                    foreach (var path in pathFormats)
-                    {
-                        try
-                        {
-                            var testValue = VmSolution.Instance[path];
-                            if (testValue != null)
-                            {
-                                FileLogger.Instance.Info($"  路径有效: {path} = {testValue}", "VisionMaster");
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // 方式3: 尝试常见输出变量名
-                    string[] possibleOutputNames = new[] { "瓶底角度", "瓶身角度", "角度", "Angle", "angle", "Result", "输出1", "输出", "旋转角度" };
-                    foreach (var outputName in possibleOutputNames)
-                    {
-                        try
-                        {
-                            var testPath = $"{_procedureName}.Outputs.{outputName}.Value";
-                            var testValue = VmSolution.Instance[testPath];
-                            if (testValue != null)
-                            {
-                                FileLogger.Instance.Info($"  发现可用输出: {outputName} = {testValue}", "VisionMaster");
-                            }
-                        }
-                        catch { }
-                    }
-
                     result.Found = false;
                     result.ErrorMessage = $"未获取到角度值(变量名:{_angleOutputName})";
                 }
-
-                // 获取输出图像
-                result.ResultImage = GetOutputImage();
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"工位{_stationId}提取结果失败: {ex.Message}, 角度变量={_angleOutputName}", ex, "VisionMaster");
                 result.Found = false;
-                result.ErrorMessage = $"结果提取失败: {ex.Message}";
+                result.ErrorMessage = $"角度提取失败: {ex.Message}";
             }
         }
 
         /// <summary>
-        /// 从全局变量读取角度值
+        /// 填充结果图像（在PLC写入后调用）
+        /// </summary>
+        public void FillResultImage(VisionResult result, Bitmap originalImage)
+        {
+            try
+            {
+                result.ResultImage = GetOutputImage();
+
+                // 如果没有结果图像（NG时），使用原图
+                if (result.ResultImage == null && originalImage != null)
+                {
+                    result.ResultImage = (Bitmap)originalImage.Clone();
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"工位{_stationId}获取结果图失败: {ex.Message}", "VisionMaster");
+            }
+        }
+
+        /// <summary>
+        /// 从全局变量读取角度值（只读取配置的变量名）
         /// </summary>
         private double? GetAngleFromGlobalVariable()
         {
@@ -570,36 +509,21 @@ namespace VisionOTA.Hardware.Vision
                 var globalVar = VmSolution.Instance["全局变量1"] as GlobalVariableModuleTool;
                 if (globalVar == null)
                 {
-                    FileLogger.Instance.Debug($"工位{_stationId}未找到全局变量模块", "VisionMaster");
                     return null;
                 }
 
-                // 尝试读取角度变量
-                string[] varNames = new[] { _angleOutputName, "瓶身角度", "瓶底角度", "角度", "输出角度" };
-                foreach (var varName in varNames)
+                // 只读取配置的角度输出变量名
+                string valueStr = globalVar.GetGlobalVar(_angleOutputName);
+                if (!string.IsNullOrEmpty(valueStr) && double.TryParse(valueStr, out double angle))
                 {
-                    try
-                    {
-                        string valueStr = globalVar.GetGlobalVar(varName);
-                        FileLogger.Instance.Debug($"工位{_stationId}读取全局变量'{varName}': '{valueStr}'", "VisionMaster");
-
-                        if (!string.IsNullOrEmpty(valueStr) && double.TryParse(valueStr, out double angle))
-                        {
-                            FileLogger.Instance.Info($"工位{_stationId}从全局变量'{varName}'读取到角度: {angle:F2}", "VisionMaster");
-                            return angle;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        FileLogger.Instance.Debug($"工位{_stationId}读取'{varName}'异常: {ex.Message}", "VisionMaster");
-                    }
+                    FileLogger.Instance.Debug($"工位{_stationId}从全局变量'{_angleOutputName}'读取角度: {angle:F2}", "VisionMaster");
+                    return angle;
                 }
 
                 return null;
             }
-            catch (Exception ex)
+            catch
             {
-                FileLogger.Instance.Warning($"工位{_stationId}读取全局变量失败: {ex.Message}", "VisionMaster");
                 return null;
             }
         }
@@ -731,8 +655,6 @@ namespace VisionOTA.Hardware.Vision
             var result = new VisionResult();
             var startTime = DateTime.Now;
 
-            FileLogger.Instance.Info($"工位{_stationId}开始执行视觉处理(文件), 流程={_procedureName}, 路径={imagePath}", "VisionMaster");
-
             try
             {
                 if (!_isLoaded || _procedure == null)
@@ -746,44 +668,33 @@ namespace VisionOTA.Hardware.Vision
                 SetInputImageFromFile(imagePath);
 
                 // 执行流程
-                FileLogger.Instance.Debug($"工位{_stationId}开始执行流程 {_procedureName}", "VisionMaster");
                 _procedure.Run();
-                FileLogger.Instance.Debug($"工位{_stationId}流程执行完成", "VisionMaster");
 
-                // 提取结果
-                ExtractResult(result);
+                // 只提取角度
+                ExtractAngleOnly(result);
 
-                // 如果没有结果图像（NG时），显示原图
+                // 获取结果图（离线测试模式需要立即显示）
+                result.ResultImage = GetOutputImage();
                 if (result.ResultImage == null && !string.IsNullOrEmpty(imagePath))
                 {
                     try
                     {
                         result.ResultImage = new Bitmap(imagePath);
-                        FileLogger.Instance.Debug($"工位{_stationId}NG时使用原图显示", "VisionMaster");
                     }
-                    catch (Exception ex)
-                    {
-                        FileLogger.Instance.Warning($"工位{_stationId}加载原图失败: {ex.Message}", "VisionMaster");
-                    }
+                    catch { }
                 }
 
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
                 _lastResult = result;
 
                 FileLogger.Instance.Info($"工位{_stationId}视觉处理完成(文件): Found={result.Found}, Angle={result.Angle:F2}, 耗时={result.ProcessTimeMs:F0}ms", "VisionMaster");
-
-                ProcessCompleted?.Invoke(this, new VisionProcessCompletedEventArgs
-                {
-                    Result = result,
-                    StationId = _stationId
-                });
             }
             catch (VmException ex)
             {
                 result.Found = false;
                 result.ErrorMessage = $"执行失败: 0x{ex.errorCode:X}";
                 result.ProcessTimeMs = (DateTime.Now - startTime).TotalMilliseconds;
-                FileLogger.Instance.Error($"工位{_stationId} VisionMaster异常: 错误码=0x{ex.errorCode:X}", null, "VisionMaster");
+                FileLogger.Instance.Error($"工位{_stationId} VisionMaster异常: 0x{ex.errorCode:X}", null, "VisionMaster");
                 ProcessError?.Invoke(this, ex);
             }
             catch (Exception ex)
