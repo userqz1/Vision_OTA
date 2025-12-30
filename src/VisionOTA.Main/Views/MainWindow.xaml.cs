@@ -1,5 +1,8 @@
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using VisionOTA.Hardware.Camera;
+using VisionOTA.Infrastructure.Logging;
 using VisionOTA.Main.ViewModels;
 
 namespace VisionOTA.Main.Views
@@ -48,11 +51,28 @@ namespace VisionOTA.Main.Views
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            FileLogger.Instance.Info("MainWindow 开始关闭...", "App");
+
             try
             {
+                // 先释放 ViewModel（会停止检测服务和相机采集）
                 _viewModel.Cleanup();
             }
             catch { }
+
+            // 等待一下让清理完成
+            Thread.Sleep(200);
+
+            try
+            {
+                // 直接释放相机资源（确保相机被关闭）
+                CameraManager.Instance.Dispose();
+                FileLogger.Instance.Info("相机资源已在窗口关闭时释放", "App");
+            }
+            catch { }
+
+            // 等待相机完全关闭
+            Thread.Sleep(300);
 
             // 确保应用程序完全退出
             Application.Current.Shutdown();

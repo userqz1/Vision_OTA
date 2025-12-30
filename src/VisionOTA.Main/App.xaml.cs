@@ -21,23 +21,9 @@ namespace VisionOTA.Main
         {
             try
             {
-                FileLogger.Instance.Info("VisionOTA 开始退出清理...", "App");
+                FileLogger.Instance.Info("App.OnExit 开始...", "App");
 
-                // 第一步：停止所有相机采集
-                try
-                {
-                    CameraManager.Instance.Dispose();
-                    FileLogger.Instance.Info("相机资源已释放", "App");
-                }
-                catch (Exception ex)
-                {
-                    FileLogger.Instance.Warning($"相机释放异常: {ex.Message}", "App");
-                }
-
-                // 等待相机完全停止
-                Thread.Sleep(300);
-
-                // 第二步：释放VisionMaster资源（带超时）
+                // 释放VisionMaster资源（带超时）
                 var visionTask = Task.Run(() =>
                 {
                     try
@@ -45,16 +31,10 @@ namespace VisionOTA.Main
                         VisionMasterSolutionManager.Instance.Dispose();
                         FileLogger.Instance.Info("VisionMaster资源已释放", "App");
                     }
-                    catch (Exception ex)
-                    {
-                        FileLogger.Instance.Warning($"VisionMaster释放异常: {ex.Message}", "App");
-                    }
+                    catch { }
                 });
 
-                if (!visionTask.Wait(3000))
-                {
-                    FileLogger.Instance.Warning("VisionMaster释放超时", "App");
-                }
+                visionTask.Wait(2000);
 
                 FileLogger.Instance.Info("VisionOTA 退出完成", "App");
                 FileLogger.Instance.Dispose();
