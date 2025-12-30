@@ -872,12 +872,20 @@ namespace VisionOTA.Core.Services
                     result.ResultImage = visionResult.ResultImage;
                 }
 
-                // 5. 图片保存（异步）
+                // 5. 图片保存（异步，克隆图像避免多线程冲突）
                 if (result.ResultImage != null)
                 {
+                    var imageToSave = (Bitmap)result.ResultImage.Clone();
                     _ = Task.Run(() =>
                     {
-                        result.ImagePath = ImageStorage.Instance.SaveImage(result.ResultImage, stationId, result.IsOk);
+                        try
+                        {
+                            result.ImagePath = ImageStorage.Instance.SaveImage(imageToSave, stationId, result.IsOk);
+                        }
+                        finally
+                        {
+                            imageToSave.Dispose();
+                        }
                     });
                 }
 

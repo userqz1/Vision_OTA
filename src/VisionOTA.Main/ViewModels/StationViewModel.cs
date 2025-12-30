@@ -650,16 +650,21 @@ namespace VisionOTA.Main.ViewModels
         {
             if (bitmap == null) return null;
 
+            // 克隆图像避免多线程访问冲突
+            System.Drawing.Bitmap clonedBitmap = null;
+            System.Drawing.Imaging.BitmapData bitmapData = null;
             try
             {
-                var bitmapData = bitmap.LockBits(
-                    new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                clonedBitmap = (System.Drawing.Bitmap)bitmap.Clone();
+
+                bitmapData = clonedBitmap.LockBits(
+                    new System.Drawing.Rectangle(0, 0, clonedBitmap.Width, clonedBitmap.Height),
                     System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                    bitmap.PixelFormat);
+                    clonedBitmap.PixelFormat);
 
                 // 根据Bitmap的像素格式选择正确的WPF PixelFormat
                 PixelFormat pixelFormat;
-                switch (bitmap.PixelFormat)
+                switch (clonedBitmap.PixelFormat)
                 {
                     case System.Drawing.Imaging.PixelFormat.Format8bppIndexed:
                         pixelFormat = PixelFormats.Gray8;
@@ -677,14 +682,12 @@ namespace VisionOTA.Main.ViewModels
                 }
 
                 var bitmapSource = BitmapSource.Create(
-                    bitmap.Width, bitmap.Height,
-                    96, 96, // 使用标准DPI
+                    clonedBitmap.Width, clonedBitmap.Height,
+                    96, 96,
                     pixelFormat, null,
                     bitmapData.Scan0,
-                    bitmapData.Stride * bitmap.Height,
+                    bitmapData.Stride * clonedBitmap.Height,
                     bitmapData.Stride);
-
-                bitmap.UnlockBits(bitmapData);
 
                 if (bitmapSource.CanFreeze)
                     bitmapSource.Freeze();
@@ -693,8 +696,16 @@ namespace VisionOTA.Main.ViewModels
             }
             catch (Exception ex)
             {
-                FileLogger.Instance.Error($"图像转换失败: {ex.Message}", ex, "Camera");
+                FileLogger.Instance.Warning($"图像转换失败: {ex.Message}", "Camera");
                 return null;
+            }
+            finally
+            {
+                if (bitmapData != null && clonedBitmap != null)
+                {
+                    clonedBitmap.UnlockBits(bitmapData);
+                }
+                clonedBitmap?.Dispose();
             }
         }
 

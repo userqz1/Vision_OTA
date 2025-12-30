@@ -562,12 +562,16 @@ namespace VisionOTA.Main.ViewModels
         {
             if (bitmap == null) return null;
 
+            // 克隆图像避免多线程访问冲突
+            System.Drawing.Bitmap clonedBitmap = null;
             System.Drawing.Imaging.BitmapData bitmapData = null;
             try
             {
+                clonedBitmap = (System.Drawing.Bitmap)bitmap.Clone();
+
                 // 根据像素格式选择对应的WPF格式
                 System.Windows.Media.PixelFormat wpfFormat;
-                switch (bitmap.PixelFormat)
+                switch (clonedBitmap.PixelFormat)
                 {
                     case System.Drawing.Imaging.PixelFormat.Format8bppIndexed:
                         wpfFormat = PixelFormats.Gray8;
@@ -584,20 +588,21 @@ namespace VisionOTA.Main.ViewModels
                         break;
                     default:
                         // 不支持的格式，转换为24位RGB
-                        using (var convertedBitmap = new System.Drawing.Bitmap(bitmap.Width, bitmap.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+                        using (var convertedBitmap = new System.Drawing.Bitmap(clonedBitmap.Width, clonedBitmap.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
                         {
                             using (var g = System.Drawing.Graphics.FromImage(convertedBitmap))
                             {
-                                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+                                g.DrawImage(clonedBitmap, 0, 0, clonedBitmap.Width, clonedBitmap.Height);
                             }
+                            clonedBitmap.Dispose();
                             return ConvertToBitmapSource(convertedBitmap);
                         }
                 }
 
-                bitmapData = bitmap.LockBits(
-                    new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                bitmapData = clonedBitmap.LockBits(
+                    new System.Drawing.Rectangle(0, 0, clonedBitmap.Width, clonedBitmap.Height),
                     System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                    bitmap.PixelFormat);
+                    clonedBitmap.PixelFormat);
 
                 var bitmapSource = BitmapSource.Create(
                     bitmapData.Width, bitmapData.Height,
@@ -612,15 +617,16 @@ namespace VisionOTA.Main.ViewModels
             }
             catch (Exception ex)
             {
-                Infrastructure.Logging.FileLogger.Instance.Warning($"图像转换失败: {ex.Message}, 格式={bitmap.PixelFormat}", "MainViewModel");
+                Infrastructure.Logging.FileLogger.Instance.Warning($"图像转换失败: {ex.Message}", "MainViewModel");
                 return null;
             }
             finally
             {
-                if (bitmapData != null)
+                if (bitmapData != null && clonedBitmap != null)
                 {
-                    bitmap.UnlockBits(bitmapData);
+                    clonedBitmap.UnlockBits(bitmapData);
                 }
+                clonedBitmap?.Dispose();
             }
         }
 
