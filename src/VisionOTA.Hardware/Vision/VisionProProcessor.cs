@@ -151,6 +151,16 @@ namespace VisionOTA.Hardware.Vision
             }
         }
 
+        public VisionResult ExecuteWithFilePath(string imagePath)
+        {
+            // VisionPro SDK未集成，返回错误结果
+            return new VisionResult
+            {
+                Found = false,
+                ErrorMessage = "VisionPro SDK未集成"
+            };
+        }
+
         public VisionResult GetLastResult()
         {
             return _lastResult;

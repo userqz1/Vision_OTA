@@ -72,6 +72,13 @@ namespace VisionOTA.Core.Interfaces
         Task<InspectionResult> ExecuteSingleAsync(int stationId, Bitmap image = null);
 
         /// <summary>
+        /// 使用图片文件路径执行单次检测
+        /// </summary>
+        /// <param name="stationId">工位ID</param>
+        /// <param name="imagePath">图片文件路径</param>
+        Task<InspectionResult> ExecuteSingleWithFilePathAsync(int stationId, string imagePath);
+
+        /// <summary>
         /// 软件触发采集（对焦模式）
         /// </summary>
         /// <param name="stationId">工位ID</param>

@@ -5,14 +5,16 @@
   },
   "Station1": {
     "ProcedureName": "瓶底工位",
+    "InputImageSourceName": "图像源1",
     "AngleOutputName": "瓶底角度",
-    "ResultImageOutputName": "瓶底结果图",
+    "ResultImageOutputName": "瓶底结果图像",
     "ScoreThreshold": 0.7
   },
   "Station2": {
     "ProcedureName": "瓶身工位",
+    "InputImageSourceName": "图像源1",
     "AngleOutputName": "瓶身角度",
-    "ResultImageOutputName": "瓶身结果图",
+    "ResultImageOutputName": "瓶身结果图像",
     "ScoreThreshold": 0.7
   },
   "Timeout": 5000,

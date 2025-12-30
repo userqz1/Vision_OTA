@@ -68,13 +68,13 @@ namespace VisionOTA.Infrastructure.Config
         public double Gain { get; set; }
 
         /// <summary>
-        /// 触发源 (Continuous/Software/Line0/Line1/Line2/Line3)
+        /// 触发源 (Continuous/Software/Line1-Line8)
         /// </summary>
         public string TriggerSource { get; set; } = "Continuous";
 
         /// <summary>
         /// 触发边沿 (RisingEdge/FallingEdge/DoubleEdge)
-        /// 仅硬件触发(Line0-3)时有效
+        /// 仅硬件触发(Line1-8)时有效
         /// </summary>
         public string TriggerEdge { get; set; } = "RisingEdge";
 

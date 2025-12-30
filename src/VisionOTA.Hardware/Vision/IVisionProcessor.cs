@@ -98,6 +98,13 @@ namespace VisionOTA.Hardware.Vision
         VisionResult Execute(Bitmap image);
 
         /// <summary>
+        /// 使用图片文件路径执行视觉处理
+        /// </summary>
+        /// <param name="imagePath">图片文件路径</param>
+        /// <returns>处理结果</returns>
+        VisionResult ExecuteWithFilePath(string imagePath);
+
+        /// <summary>
         /// 获取最近的处理结果
         /// </summary>
         VisionResult GetLastResult();

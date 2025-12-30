@@ -247,12 +247,14 @@ namespace VisionOTA.Core.Services
                 var processor2 = new VisionMasterProcessor(2);
 
                 // 配置工位1（瓶底定位）
+                processor1.ConfigureInputImageSource(visionConfig.Station1.InputImageSourceName);
                 processor1.ConfigureOutputs(
                     visionConfig.Station1.AngleOutputName,
                     visionConfig.Station1.ResultImageOutputName);
                 processor1.LoadToolBlock(visionConfig.Station1.ProcedureName);
 
                 // 配置工位2（瓶身定位）
+                processor2.ConfigureInputImageSource(visionConfig.Station2.InputImageSourceName);
                 processor2.ConfigureOutputs(
                     visionConfig.Station2.AngleOutputName,
                     visionConfig.Station2.ResultImageOutputName);
@@ -438,10 +440,14 @@ namespace VisionOTA.Core.Services
             switch (configValue)
             {
                 case "Software": return TriggerSource.Software;
-                case "Line0": return TriggerSource.Line0;
                 case "Line1": return TriggerSource.Line1;
                 case "Line2": return TriggerSource.Line2;
                 case "Line3": return TriggerSource.Line3;
+                case "Line4": return TriggerSource.Line4;
+                case "Line5": return TriggerSource.Line5;
+                case "Line6": return TriggerSource.Line6;
+                case "Line7": return TriggerSource.Line7;
+                case "Line8": return TriggerSource.Line8;
                 default: return TriggerSource.Continuous;
             }
         }
@@ -453,23 +459,27 @@ namespace VisionOTA.Core.Services
 
             try
             {
-                // 检查视觉工具块是否加载
-                if (!_visionProcessors[1].IsLoaded || !_visionProcessors[2].IsLoaded)
-                {
-                    ErrorOccurred?.Invoke(this, "视觉工具块未加载");
-                    return false;
-                }
-
                 _runCts = new CancellationTokenSource();
                 _consecutiveFailures = 0;
 
-                // 检查并重连相机，然后启动采集
+                // 检查并重连相机，然后启动采集（两工位独立运行）
                 var cameraConfig = ConfigManager.Instance.Camera;
+                int connectedCount = 0;
+                var failedStations = new List<int>();
+
                 foreach (var kvp in _cameras)
                 {
                     var stationId = kvp.Key;
                     var camera = kvp.Value;
                     var stationConfig = stationId == 1 ? cameraConfig.Station1 : cameraConfig.Station2;
+
+                    // 检查视觉处理器是否加载
+                    if (!_visionProcessors.ContainsKey(stationId) || !_visionProcessors[stationId].IsLoaded)
+                    {
+                        FileLogger.Instance.Warning($"工位{stationId}视觉处理器未加载，跳过", "Inspection");
+                        failedStations.Add(stationId);
+                        continue;
+                    }
 
                     // 如果相机未连接，尝试重连
                     if (!camera.IsConnected)
@@ -478,23 +488,24 @@ namespace VisionOTA.Core.Services
 
                         if (string.IsNullOrEmpty(stationConfig.UserId))
                         {
-                            FileLogger.Instance.Warning($"工位{stationId}相机UserId未配置，无法重连", "Inspection");
-                            ErrorOccurred?.Invoke(this, $"工位{stationId}相机未配置");
-                            return false;
+                            FileLogger.Instance.Warning($"工位{stationId}相机UserId未配置，跳过该工位", "Inspection");
+                            failedStations.Add(stationId);
+                            continue;
                         }
 
                         if (!camera.Connect(stationConfig.UserId))
                         {
-                            FileLogger.Instance.Error($"工位{stationId}相机重连失败", "Inspection");
-                            ErrorOccurred?.Invoke(this, $"工位{stationId}相机连接失败");
-                            return false;
+                            FileLogger.Instance.Warning($"工位{stationId}相机重连失败，跳过该工位", "Inspection");
+                            failedStations.Add(stationId);
+                            continue;
                         }
 
                         FileLogger.Instance.Info($"工位{stationId}相机重连成功", "Inspection");
 
-                        // 配置触发源为硬件触发
-                        camera.SetTriggerSource(TriggerSource.Hardware);
-                        FileLogger.Instance.Debug($"工位{stationId}触发源设置为硬件触发", "Inspection");
+                        // 从配置读取触发源
+                        var triggerSource = ConvertConfigToTriggerSource(stationConfig.TriggerSource);
+                        camera.SetTriggerSource(triggerSource);
+                        FileLogger.Instance.Debug($"工位{stationId}触发源设置为: {stationConfig.TriggerSource}", "Inspection");
                     }
 
                     // 启动采集
@@ -503,6 +514,23 @@ namespace VisionOTA.Core.Services
                         camera.StartGrab();
                         FileLogger.Instance.Debug($"工位{stationId}相机开始采集", "Inspection");
                     }
+
+                    connectedCount++;
+                }
+
+                // 如果所有工位都失败，返回错误
+                if (connectedCount == 0)
+                {
+                    ErrorOccurred?.Invoke(this, "所有工位相机均未连接");
+                    return false;
+                }
+
+                // 部分工位失败时发出警告
+                if (failedStations.Count > 0)
+                {
+                    var msg = $"工位{string.Join(",", failedStations)}未就绪，其他工位正常运行";
+                    FileLogger.Instance.Warning(msg, "Inspection");
+                    ErrorOccurred?.Invoke(this, msg);
                 }
 
                 CurrentState = SystemState.Running;
@@ -622,6 +650,71 @@ namespace VisionOTA.Core.Services
             catch (Exception ex)
             {
                 FileLogger.Instance.Error($"单次检测失败: {ex.Message}", ex, "Inspection");
+                return new InspectionResult
+                {
+                    StationId = stationId,
+                    Timestamp = DateTime.Now,
+                    ResultType = InspectionResultType.Error,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 使用图片文件路径执行单次检测
+        /// </summary>
+        public async Task<InspectionResult> ExecuteSingleWithFilePathAsync(int stationId, string imagePath)
+        {
+            try
+            {
+                if (!_visionProcessors.ContainsKey(stationId) || !_visionProcessors[stationId].IsLoaded)
+                {
+                    return new InspectionResult
+                    {
+                        StationId = stationId,
+                        Timestamp = DateTime.Now,
+                        ResultType = InspectionResultType.Error,
+                        ErrorMessage = "视觉工具块未加载"
+                    };
+                }
+
+                // 瓶身工位（工位2）检测前，先设置旋转角度
+                if (stationId == 2)
+                {
+                    await SetRotationAngleBeforeInspectionAsync();
+                }
+
+                // 使用文件路径执行视觉处理
+                var visionResult = _visionProcessors[stationId].ExecuteWithFilePath(imagePath);
+                if (visionResult == null)
+                {
+                    return new InspectionResult
+                    {
+                        StationId = stationId,
+                        Timestamp = DateTime.Now,
+                        ResultType = InspectionResultType.Error,
+                        ErrorMessage = "视觉处理失败"
+                    };
+                }
+
+                var result = new InspectionResult
+                {
+                    StationId = stationId,
+                    Timestamp = DateTime.Now,
+                    ResultType = visionResult.Found ? InspectionResultType.Ok : InspectionResultType.Ng,
+                    Score = visionResult.Score,
+                    Angle = visionResult.Angle,
+                    X = visionResult.X,
+                    Y = visionResult.Y,
+                    ProcessTimeMs = visionResult.ProcessTimeMs,
+                    ResultImage = visionResult.ResultImage
+                };
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"文件路径检测失败: {ex.Message}", ex, "Inspection");
                 return new InspectionResult
                 {
                     StationId = stationId,

@@ -149,6 +149,27 @@ namespace VisionOTA.Hardware.Vision
             return result;
         }
 
+        public VisionResult ExecuteWithFilePath(string imagePath)
+        {
+            // 模拟处理器使用加载图片后执行
+            if (!_isLoaded)
+            {
+                return new VisionResult { Found = false, ErrorMessage = "工具块未加载" };
+            }
+
+            try
+            {
+                using (var bitmap = new Bitmap(imagePath))
+                {
+                    return Execute(bitmap);
+                }
+            }
+            catch (Exception ex)
+            {
+                return new VisionResult { Found = false, ErrorMessage = ex.Message };
+            }
+        }
+
         public VisionResult GetLastResult()
         {
             return _lastResult;

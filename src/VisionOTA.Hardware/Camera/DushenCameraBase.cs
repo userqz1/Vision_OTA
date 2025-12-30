@@ -375,7 +375,6 @@ namespace VisionOTA.Hardware.Camera
                     FileLogger.Instance.Debug($"设置软件触发源: {status}", CameraTypeName);
                     break;
 
-                case TriggerSource.Line0:
                 case TriggerSource.Line1:
                     status = DVPCamera.dvpSetTriggerState(_handle, true);
                     status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE1);
@@ -395,6 +394,41 @@ namespace VisionOTA.Hardware.Camera
                     status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE3);
                     status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
                     FileLogger.Instance.Debug($"设置硬件触发Line3: {status}", CameraTypeName);
+                    break;
+
+                case TriggerSource.Line4:
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE4);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line4: {status}", CameraTypeName);
+                    break;
+
+                case TriggerSource.Line5:
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE5);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line5: {status}", CameraTypeName);
+                    break;
+
+                case TriggerSource.Line6:
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE6);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line6: {status}", CameraTypeName);
+                    break;
+
+                case TriggerSource.Line7:
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE7);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line7: {status}", CameraTypeName);
+                    break;
+
+                case TriggerSource.Line8:
+                    status = DVPCamera.dvpSetTriggerState(_handle, true);
+                    status = DVPCamera.dvpSetTriggerSource(_handle, dvpTriggerSource.TRIGGER_SOURCE_LINE8);
+                    status = DVPCamera.dvpSetTriggerInputType(_handle, ConvertTriggerEdge(_triggerEdge));
+                    FileLogger.Instance.Debug($"设置硬件触发Line8: {status}", CameraTypeName);
                     break;
             }
         }
@@ -581,8 +615,10 @@ namespace VisionOTA.Hardware.Camera
 
         protected bool IsHardwareTrigger(TriggerSource source)
         {
-            return source == TriggerSource.Line0 || source == TriggerSource.Line1 ||
-                   source == TriggerSource.Line2 || source == TriggerSource.Line3;
+            return source == TriggerSource.Line1 || source == TriggerSource.Line2 ||
+                   source == TriggerSource.Line3 || source == TriggerSource.Line4 ||
+                   source == TriggerSource.Line5 || source == TriggerSource.Line6 ||
+                   source == TriggerSource.Line7 || source == TriggerSource.Line8;
         }
 
         private int _frameCount = 0;

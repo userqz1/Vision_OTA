@@ -181,6 +181,7 @@ namespace VisionOTA.Main.ViewModels
         public ICommand OpenUserManagementCommand { get; }
         public ICommand TestTriggerStation1Command { get; }
         public ICommand TestTriggerStation2Command { get; }
+        public ICommand TestImageStation2Command { get; }
 
         #endregion
 
@@ -208,6 +209,7 @@ namespace VisionOTA.Main.ViewModels
             OpenUserManagementCommand = new RelayCommand(_ => OpenUserManagement(), _ => IsAdmin);
             TestTriggerStation1Command = new RelayCommand(async _ => await SendTestTrigger(1), _ => CanOperate);
             TestTriggerStation2Command = new RelayCommand(async _ => await SendTestTrigger(2), _ => CanOperate);
+            TestImageStation2Command = new RelayCommand(_ => TestImageWithFile(2));
 
             // 订阅事件
             _inspectionService.InspectionCompleted += OnInspectionCompleted;
@@ -372,6 +374,81 @@ namespace VisionOTA.Main.ViewModels
             if (!success)
             {
                 MessageBox.Show($"工位{stationId}测试触发发送失败，请检查PLC连接", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// 使用本地图片文件测试VisionMaster
+        /// </summary>
+        private void TestImageWithFile(int stationId)
+        {
+            try
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = $"选择工位{stationId}测试图片",
+                    Filter = "图片文件|*.bmp;*.jpg;*.jpeg;*.png;*.tif;*.tiff|所有文件|*.*",
+                    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    StatusMessage = $"正在测试图片: {System.IO.Path.GetFileName(dialog.FileName)}";
+                    FileLogger.Instance.Info($"工位{stationId}测试图片(文件路径): {dialog.FileName}", "Test");
+
+                    // 使用文件路径方式调用InspectionService执行单次检测
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // 直接使用文件路径，让VisionMaster加载图片
+                            var result = await _inspectionService.ExecuteSingleWithFilePathAsync(stationId, dialog.FileName);
+
+                            RunOnUIThread(() =>
+                            {
+                                if (result.ResultType == InspectionResultType.Ok)
+                                {
+                                    StatusMessage = $"测试完成: OK, 角度={result.Angle:F2}°";
+                                    MessageBox.Show($"检测结果: OK\n角度: {result.Angle:F2}°\n耗时: {result.ProcessTimeMs:F0}ms", "测试结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                                }
+                                else if (result.ResultType == InspectionResultType.Ng)
+                                {
+                                    StatusMessage = $"测试完成: NG";
+                                    MessageBox.Show($"检测结果: NG\n耗时: {result.ProcessTimeMs:F0}ms", "测试结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                }
+                                else
+                                {
+                                    StatusMessage = $"测试失败: {result.ErrorMessage}";
+                                    MessageBox.Show($"检测失败: {result.ErrorMessage}", "测试结果", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+
+                                // 更新工位显示
+                                if (stationId == 2)
+                                {
+                                    Station2.UpdateResult(result.IsOk, result.Angle);
+                                    if (result.ResultImage != null)
+                                    {
+                                        Station2.SetImage(result.ResultImage);
+                                    }
+                                }
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            FileLogger.Instance.Error($"测试图片处理失败: {ex.Message}", ex, "Test");
+                            RunOnUIThread(() =>
+                            {
+                                StatusMessage = $"测试失败: {ex.Message}";
+                                MessageBox.Show($"测试失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                            });
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"打开测试图片失败: {ex.Message}", ex, "Test");
+                MessageBox.Show($"打开测试图片失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

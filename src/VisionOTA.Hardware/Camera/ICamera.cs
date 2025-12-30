@@ -19,24 +19,44 @@ namespace VisionOTA.Hardware.Camera
         Software = 1,
 
         /// <summary>
-        /// LINE0 硬件触发
-        /// </summary>
-        Line0 = 2,
-
-        /// <summary>
         /// LINE1 硬件触发
         /// </summary>
-        Line1 = 3,
+        Line1 = 2,
 
         /// <summary>
         /// LINE2 硬件触发
         /// </summary>
-        Line2 = 4,
+        Line2 = 3,
 
         /// <summary>
-        /// LINE3 硬件触发（编码器）
+        /// LINE3 硬件触发
         /// </summary>
-        Line3 = 5
+        Line3 = 4,
+
+        /// <summary>
+        /// LINE4 硬件触发
+        /// </summary>
+        Line4 = 5,
+
+        /// <summary>
+        /// LINE5 硬件触发
+        /// </summary>
+        Line5 = 6,
+
+        /// <summary>
+        /// LINE6 硬件触发
+        /// </summary>
+        Line6 = 7,
+
+        /// <summary>
+        /// LINE7 硬件触发
+        /// </summary>
+        Line7 = 8,
+
+        /// <summary>
+        /// LINE8 硬件触发
+        /// </summary>
+        Line8 = 9
     }
 
     /// <summary>

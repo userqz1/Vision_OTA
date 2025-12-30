@@ -93,11 +93,11 @@ namespace VisionOTA.Main.ViewModels
         public string BottleRotationButtonText => _isBottleRotating ? "停止旋转" : "旋转瓶身";
 
         /// <summary>
-        /// 触发源选项：连续采集、软件触发、Line0-Line3
+        /// 触发源选项：连续采集、软件触发、Line1-Line8
         /// </summary>
         public List<string> TriggerSources { get; } = new List<string>
         {
-            "连续采集", "软件触发", "Line0", "Line1", "Line2", "Line3"
+            "连续采集", "软件触发", "Line1", "Line2", "Line3", "Line4", "Line5", "Line6", "Line7", "Line8"
         };
 
         #endregion
@@ -241,10 +241,14 @@ namespace VisionOTA.Main.ViewModels
             switch (configValue)
             {
                 case "Software": return "软件触发";
-                case "Line0": return "Line0";
                 case "Line1": return "Line1";
                 case "Line2": return "Line2";
                 case "Line3": return "Line3";
+                case "Line4": return "Line4";
+                case "Line5": return "Line5";
+                case "Line6": return "Line6";
+                case "Line7": return "Line7";
+                case "Line8": return "Line8";
                 default: return "连续采集";
             }
         }
@@ -257,10 +261,14 @@ namespace VisionOTA.Main.ViewModels
             switch (displayValue)
             {
                 case "软件触发": return "Software";
-                case "Line0": return "Line0";
                 case "Line1": return "Line1";
                 case "Line2": return "Line2";
                 case "Line3": return "Line3";
+                case "Line4": return "Line4";
+                case "Line5": return "Line5";
+                case "Line6": return "Line6";
+                case "Line7": return "Line7";
+                case "Line8": return "Line8";
                 default: return "Continuous";
             }
         }

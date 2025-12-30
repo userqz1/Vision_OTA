@@ -15,7 +15,8 @@ namespace VisionOTA.Infrastructure.Config
         /// </summary>
         public StationVisionConfig Station1 { get; set; } = new StationVisionConfig
         {
-            ProcedureName = "流程10000",
+            ProcedureName = "瓶底工位",
+            InputImageSourceName = "图像源",
             AngleOutputName = "瓶底角度",
             ResultImageOutputName = "瓶底结果图"
         };
@@ -26,6 +27,7 @@ namespace VisionOTA.Infrastructure.Config
         public StationVisionConfig Station2 { get; set; } = new StationVisionConfig
         {
             ProcedureName = "流程10001",
+            InputImageSourceName = "4图像源1",
             AngleOutputName = "瓶身角度",
             ResultImageOutputName = "瓶身结果图"
         };
@@ -76,6 +78,11 @@ namespace VisionOTA.Infrastructure.Config
         /// 流程名称（VisionMaster中的流程名）
         /// </summary>
         public string ProcedureName { get; set; }
+
+        /// <summary>
+        /// 输入图像源名称（流程中图像源模块的名称）
+        /// </summary>
+        public string InputImageSourceName { get; set; }
 
         /// <summary>
         /// 角度输出变量名（流程输出设置中配置的变量名）

@@ -103,7 +103,7 @@ namespace VisionOTA.Main.ViewModels
         }
 
         /// <summary>
-        /// 触发源：连续采集、软件触发、Line0、Line1、Line2、Line3
+        /// 触发源：连续采集、软件触发、Line1-Line8
         /// </summary>
         public string TriggerSource
         {
@@ -481,14 +481,22 @@ namespace VisionOTA.Main.ViewModels
             {
                 case "软件触发":
                     return Hardware.Camera.TriggerSource.Software;
-                case "Line0":
-                    return Hardware.Camera.TriggerSource.Line0;
                 case "Line1":
                     return Hardware.Camera.TriggerSource.Line1;
                 case "Line2":
                     return Hardware.Camera.TriggerSource.Line2;
                 case "Line3":
                     return Hardware.Camera.TriggerSource.Line3;
+                case "Line4":
+                    return Hardware.Camera.TriggerSource.Line4;
+                case "Line5":
+                    return Hardware.Camera.TriggerSource.Line5;
+                case "Line6":
+                    return Hardware.Camera.TriggerSource.Line6;
+                case "Line7":
+                    return Hardware.Camera.TriggerSource.Line7;
+                case "Line8":
+                    return Hardware.Camera.TriggerSource.Line8;
                 default: // 连续采集
                     return Hardware.Camera.TriggerSource.Continuous;
             }
@@ -561,6 +569,29 @@ namespace VisionOTA.Main.ViewModels
                 ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
                 : new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
             Angle = angle;
+        }
+
+        /// <summary>
+        /// 从Bitmap设置图像显示
+        /// </summary>
+        public void SetImage(System.Drawing.Bitmap bitmap)
+        {
+            if (bitmap == null) return;
+
+            try
+            {
+                var bitmapSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                    bitmap.GetHbitmap(),
+                    IntPtr.Zero,
+                    System.Windows.Int32Rect.Empty,
+                    BitmapSizeOptions.FromEmptyOptions());
+                bitmapSource.Freeze();
+                Image = bitmapSource;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"设置图像失败: {ex.Message}", ex, "StationVM");
+            }
         }
 
         private void SaveImage()
