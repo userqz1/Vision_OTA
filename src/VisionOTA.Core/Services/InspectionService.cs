@@ -1045,6 +1045,8 @@ namespace VisionOTA.Core.Services
 
             _isDisposed = true; // 先设置标志，防止异步操作继续
 
+            FileLogger.Instance.Info("开始释放检测服务...", "Inspection");
+
             // 取消所有后台任务
             try
             {
@@ -1053,17 +1055,25 @@ namespace VisionOTA.Core.Services
             }
             catch { }
 
-            // 给异步操作一点时间完成
-            Task.Delay(100).Wait();
-
-            try
+            // 先停止所有相机采集（重要！必须在取消事件订阅前停止）
+            foreach (var kvp in _cameras)
             {
-                _runCts?.Dispose();
-                _reconnectCts?.Dispose();
+                try
+                {
+                    var camera = kvp.Value;
+                    if (camera.IsGrabbing)
+                    {
+                        FileLogger.Instance.Debug($"停止工位{kvp.Key}相机采集", "Inspection");
+                        camera.StopGrab();
+                    }
+                }
+                catch { }
             }
-            catch { }
 
-            // 取消相机事件订阅（相机实例由CameraManager管理，不在此释放）
+            // 给相机停止一点时间
+            Task.Delay(200).Wait();
+
+            // 取消相机事件订阅
             foreach (var camera in _cameras.Values)
             {
                 try
@@ -1074,6 +1084,13 @@ namespace VisionOTA.Core.Services
                 catch { }
             }
             _cameras.Clear();
+
+            try
+            {
+                _runCts?.Dispose();
+                _reconnectCts?.Dispose();
+            }
+            catch { }
 
             foreach (var vision in _visionProcessors.Values)
             {
