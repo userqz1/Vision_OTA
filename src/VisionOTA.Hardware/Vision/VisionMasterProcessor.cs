@@ -914,51 +914,59 @@ namespace VisionOTA.Hardware.Vision
                     FileLogger.Instance.Debug($"获取流程输出失败: {ex.Message}", "VisionMaster");
                 }
 
-                // 尝试常见模块名称
-                string[] moduleNames = new[]
+                // 使用官方API获取所有模块
+                try
                 {
-                    "图像源1", "图像源2", "图像源",
-                    "脚本1", "脚本2", "脚本",
-                    "Script1", "Script2",
-                    "全局变量1", "全局变量",
-                    "匹配1", "匹配2",
-                    "结果输出", "输出"
-                };
-
-                foreach (var moduleName in moduleNames)
-                {
-                    try
+                    var moduleList = procedure.GetAllModuleList();
+                    if (moduleList != null)
                     {
-                        var module = VmSolution.Instance[$"{procedureName}.{moduleName}"];
-                        if (module != null)
+                        FileLogger.Instance.Info($"模块总数: {moduleList.nNums}", "VisionMaster");
+                        for (int i = 0; i < moduleList.nNums; i++)
                         {
-                            FileLogger.Instance.Info($"  模块: {moduleName}, 类型: {module.GetType().Name}", "VisionMaster");
-
-                            // 尝试获取ModuResult
                             try
                             {
-                                var moduResult = module.GetType().GetProperty("ModuResult")?.GetValue(module);
-                                if (moduResult != null)
-                                {
-                                    FileLogger.Instance.Info($"    ModuResult: {moduResult.GetType().Name}", "VisionMaster");
+                                var moduleInfo = moduleList.astModuleInfo[i];
+                                FileLogger.Instance.Info($"  模块[{i}]: Name={moduleInfo.strModuleName}, Type={moduleInfo.strModuleType}, ID={moduleInfo.strModuleId}", "VisionMaster");
+                            }
+                            catch (Exception ex)
+                            {
+                                FileLogger.Instance.Debug($"  模块[{i}]: 读取失败 - {ex.Message}", "VisionMaster");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Debug($"GetAllModuleList失败: {ex.Message}", "VisionMaster");
+                }
 
-                                    // 尝试获取result参数
-                                    try
-                                    {
-                                        var getOutputFloat = moduResult.GetType().GetMethod("GetOutputFloat");
-                                        if (getOutputFloat != null)
-                                        {
-                                            var resultValue = getOutputFloat.Invoke(moduResult, new object[] { "result" });
-                                            FileLogger.Instance.Info($"    result参数值: {resultValue}", "VisionMaster");
-                                        }
-                                    }
-                                    catch { }
+                // 尝试获取流程的ModuResult
+                try
+                {
+                    var moduResult = procedure.ModuResult;
+                    if (moduResult != null)
+                    {
+                        FileLogger.Instance.Info($"流程ModuResult可用", "VisionMaster");
+
+                        // 尝试读取配置的输出变量
+                        string[] testVars = new[] { "瓶底角度", "瓶身角度", "角度", "%瓶底角度%", "%瓶身角度%" };
+                        foreach (var varName in testVars)
+                        {
+                            try
+                            {
+                                var floatResult = moduResult.GetOutputFloat(varName);
+                                if (floatResult != null && floatResult.nDataNum > 0)
+                                {
+                                    FileLogger.Instance.Info($"  变量[{varName}]: 数量={floatResult.nDataNum}, 值={floatResult.afData[0]}", "VisionMaster");
                                 }
                             }
                             catch { }
                         }
                     }
-                    catch { }
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Debug($"获取ModuResult失败: {ex.Message}", "VisionMaster");
                 }
 
                 FileLogger.Instance.Info($"========== 流程 [{procedureName}] 探测完成 ==========", "VisionMaster");
