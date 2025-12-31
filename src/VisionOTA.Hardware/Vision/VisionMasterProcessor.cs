@@ -622,30 +622,218 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 获取输出图像（从流程输出变量）
+        /// 获取输出图像（从流程输出变量或快速匹配模块）
         /// </summary>
         private Bitmap GetOutputImage()
         {
             try
             {
-                if (string.IsNullOrEmpty(_resultImageOutputName) || _procedure == null)
+                if (_procedure == null)
                 {
                     return null;
                 }
 
-                // 使用流程的 GetVmIOImageValue 方法获取结果图
-                var vmImage = _procedure.GetVmIOImageValue(_resultImageOutputName);
-                if (vmImage != null)
+                // 方法1: 从快速匹配模块获取结果图
+                var imageFromMatch = GetImageFromFastMatchModule();
+                if (imageFromMatch != null)
                 {
-                    return ConvertVmImageToBitmap(vmImage);
+                    FileLogger.Instance.Debug($"工位{_stationId}从快速匹配模块获取结果图", "VisionMaster");
+                    return imageFromMatch;
                 }
 
-                FileLogger.Instance.Debug($"未获取到结果图，变量名: {_resultImageOutputName}", "VisionMaster");
+                // 方法2: 从流程输出变量获取
+                if (!string.IsNullOrEmpty(_resultImageOutputName))
+                {
+                    var vmImage = _procedure.GetVmIOImageValue(_resultImageOutputName);
+                    if (vmImage != null)
+                    {
+                        FileLogger.Instance.Debug($"工位{_stationId}从输出变量获取结果图: {_resultImageOutputName}", "VisionMaster");
+                        return ConvertVmImageToBitmap(vmImage);
+                    }
+                }
+
+                // 方法3: 从输出图像模块获取
+                var imageFromOutput = GetImageFromOutputImageModule();
+                if (imageFromOutput != null)
+                {
+                    FileLogger.Instance.Debug($"工位{_stationId}从输出图像模块获取结果图", "VisionMaster");
+                    return imageFromOutput;
+                }
+
+                FileLogger.Instance.Debug($"工位{_stationId}未获取到结果图", "VisionMaster");
                 return null;
             }
             catch (Exception ex)
             {
                 FileLogger.Instance.Warning($"获取输出图像失败: {ex.Message}", "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 从快速匹配模块获取结果图像
+        /// </summary>
+        private Bitmap GetImageFromFastMatchModule()
+        {
+            try
+            {
+                var matchModule = VmSolution.Instance[$"{_procedureName}.快速匹配1"];
+                if (matchModule == null)
+                {
+                    return null;
+                }
+
+                // 尝试获取模块的结果图
+                var moduResultProp = matchModule.GetType().GetProperty("ModuResult");
+                if (moduResultProp == null)
+                {
+                    return null;
+                }
+
+                var moduResult = moduResultProp.GetValue(matchModule);
+                if (moduResult == null)
+                {
+                    return null;
+                }
+
+                // 尝试调用GetOutputImageV2
+                var getOutputImageMethod = moduResult.GetType().GetMethod("GetOutputImageV2");
+                if (getOutputImageMethod != null)
+                {
+                    var imageResult = getOutputImageMethod.Invoke(moduResult, new object[] { "OutputImage" });
+                    if (imageResult != null)
+                    {
+                        return ConvertImageBaseDataToBitmap(imageResult);
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Debug($"工位{_stationId}从快速匹配模块获取图像失败: {ex.Message}", "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 从输出图像模块获取结果图像
+        /// </summary>
+        private Bitmap GetImageFromOutputImageModule()
+        {
+            try
+            {
+                var outputModule = VmSolution.Instance[$"{_procedureName}.输出图像1"];
+                if (outputModule == null)
+                {
+                    return null;
+                }
+
+                // 尝试获取模块的结果图
+                var moduResultProp = outputModule.GetType().GetProperty("ModuResult");
+                if (moduResultProp == null)
+                {
+                    return null;
+                }
+
+                var moduResult = moduResultProp.GetValue(outputModule);
+                if (moduResult == null)
+                {
+                    return null;
+                }
+
+                // 尝试调用GetOutputImageV2
+                var getOutputImageMethod = moduResult.GetType().GetMethod("GetOutputImageV2");
+                if (getOutputImageMethod != null)
+                {
+                    var imageResult = getOutputImageMethod.Invoke(moduResult, new object[] { "OutputImage" });
+                    if (imageResult != null)
+                    {
+                        return ConvertImageBaseDataToBitmap(imageResult);
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Debug($"工位{_stationId}从输出图像模块获取图像失败: {ex.Message}", "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 转换ImageBaseData_V2到Bitmap
+        /// </summary>
+        private Bitmap ConvertImageBaseDataToBitmap(object imageData)
+        {
+            try
+            {
+                if (imageData == null) return null;
+
+                var dataType = imageData.GetType();
+
+                // 获取图像属性
+                var widthField = dataType.GetField("nWidth") ?? dataType.GetField("Width");
+                var heightField = dataType.GetField("nHeight") ?? dataType.GetField("Height");
+                var dataField = dataType.GetField("pData") ?? dataType.GetField("ImageData");
+                var formatField = dataType.GetField("nPixelFormat") ?? dataType.GetField("Pixelformat");
+
+                if (widthField == null || heightField == null || dataField == null)
+                {
+                    return null;
+                }
+
+                int width = Convert.ToInt32(widthField.GetValue(imageData));
+                int height = Convert.ToInt32(heightField.GetValue(imageData));
+
+                if (width <= 0 || height <= 0)
+                {
+                    return null;
+                }
+
+                var data = dataField.GetValue(imageData);
+                if (data == null)
+                {
+                    return null;
+                }
+
+                byte[] imageBytes = null;
+                if (data is byte[] bytes)
+                {
+                    imageBytes = bytes;
+                }
+                else if (data is IntPtr ptr && ptr != IntPtr.Zero)
+                {
+                    int size = width * height * 3; // 假设RGB
+                    imageBytes = new byte[size];
+                    Marshal.Copy(ptr, imageBytes, 0, size);
+                }
+
+                if (imageBytes == null || imageBytes.Length == 0)
+                {
+                    return null;
+                }
+
+                // 创建Bitmap
+                var bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                var rect = new Rectangle(0, 0, width, height);
+                var bmpData = bitmap.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+
+                try
+                {
+                    Marshal.Copy(imageBytes, 0, bmpData.Scan0, Math.Min(imageBytes.Length, bmpData.Stride * height));
+                }
+                finally
+                {
+                    bitmap.UnlockBits(bmpData);
+                }
+
+                return bitmap;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Debug($"转换ImageBaseData失败: {ex.Message}", "VisionMaster");
                 return null;
             }
         }
