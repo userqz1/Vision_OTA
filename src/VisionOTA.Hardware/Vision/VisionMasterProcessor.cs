@@ -418,68 +418,156 @@ namespace VisionOTA.Hardware.Vision
         {
             try
             {
-                // 优先从全局变量读取角度值
+                // 方法1: 从脚本模块获取result (瓶身工位使用)
+                double? angleFromScript = GetAngleFromScriptModule();
+                if (angleFromScript.HasValue && !double.IsNaN(angleFromScript.Value) && !double.IsInfinity(angleFromScript.Value))
+                {
+                    result.Angle = angleFromScript.Value;
+                    result.Found = true;
+                    FileLogger.Instance.Debug($"工位{_stationId}从脚本模块获取角度: {result.Angle:F2}", "VisionMaster");
+                    return;
+                }
+
+                // 方法2: 从流程ModuResult获取 (使用配置的输出变量名)
+                double? angleFromModuResult = GetAngleFromProcedureModuResult();
+                if (angleFromModuResult.HasValue && !double.IsNaN(angleFromModuResult.Value) && !double.IsInfinity(angleFromModuResult.Value))
+                {
+                    result.Angle = angleFromModuResult.Value;
+                    result.Found = true;
+                    FileLogger.Instance.Debug($"工位{_stationId}从流程ModuResult获取角度: {result.Angle:F2}", "VisionMaster");
+                    return;
+                }
+
+                // 方法3: 从全局变量读取角度值
                 double? angleFromGlobal = GetAngleFromGlobalVariable();
                 if (angleFromGlobal.HasValue && !double.IsNaN(angleFromGlobal.Value) && !double.IsInfinity(angleFromGlobal.Value))
                 {
                     result.Angle = angleFromGlobal.Value;
                     result.Found = true;
+                    FileLogger.Instance.Debug($"工位{_stationId}从全局变量获取角度: {result.Angle:F2}", "VisionMaster");
                     return;
                 }
 
-                // 备选：从流程输出设置获取角度值
-                var anglePath = $"{_procedureName}.Outputs.{_angleOutputName}";
-                var angleValue = VmSolution.Instance[anglePath];
-                if (angleValue != null)
-                {
-                    double? extractedAngle = null;
-                    var valueProperty = angleValue.GetType().GetProperty("Value");
-                    if (valueProperty != null)
-                    {
-                        var actualValue = valueProperty.GetValue(angleValue);
-                        if (actualValue is Array arr && arr.Length > 0)
-                        {
-                            var firstElement = arr.GetValue(0);
-                            if (firstElement != null)
-                            {
-                                extractedAngle = Convert.ToDouble(firstElement);
-                            }
-                        }
-                        else if (actualValue != null)
-                        {
-                            extractedAngle = Convert.ToDouble(actualValue);
-                        }
-                    }
-                    else if (angleValue is Array angleArray && angleArray.Length > 0)
-                    {
-                        extractedAngle = Convert.ToDouble(angleArray.GetValue(0));
-                    }
-                    else
-                    {
-                        extractedAngle = Convert.ToDouble(angleValue);
-                    }
-
-                    if (extractedAngle.HasValue && !double.IsNaN(extractedAngle.Value) && !double.IsInfinity(extractedAngle.Value))
-                    {
-                        result.Angle = extractedAngle.Value;
-                        result.Found = true;
-                    }
-                    else
-                    {
-                        result.Found = false;
-                        result.ErrorMessage = "角度值无效(NaN或Infinity)";
-                    }
-                }
-                else
-                {
-                    result.Found = false;
-                    result.ErrorMessage = $"未获取到角度值(变量名:{_angleOutputName})";
-                }
+                result.Found = false;
+                result.ErrorMessage = $"未获取到角度值";
             }
             catch (Exception ex)
             {
                 result.Found = false;
                 result.ErrorMessage = $"角度提取失败: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// 从脚本模块获取角度值
+        /// </summary>
+        private double? GetAngleFromScriptModule()
+        {
+            try
+            {
+                // 尝试获取脚本1模块
+                var scriptModule = VmSolution.Instance[$"{_procedureName}.脚本1"];
+                if (scriptModule == null)
+                {
+                    return null;
+                }
+
+                // 获取ModuResult
+                var moduResultProp = scriptModule.GetType().GetProperty("ModuResult");
+                if (moduResultProp == null)
+                {
+                    return null;
+                }
+
+                var moduResult = moduResultProp.GetValue(scriptModule);
+                if (moduResult == null)
+                {
+                    return null;
+                }
+
+                // 调用GetOutputFloat("result")
+                var getOutputFloatMethod = moduResult.GetType().GetMethod("GetOutputFloat");
+                if (getOutputFloatMethod == null)
+                {
+                    return null;
+                }
+
+                var floatResult = getOutputFloatMethod.Invoke(moduResult, new object[] { "result" });
+                if (floatResult == null)
+                {
+                    return null;
+                }
+
+                // 读取FloatDataArray的nValueNum和pFloatVal
+                var nValueNumField = floatResult.GetType().GetField("nValueNum");
+                var pFloatValField = floatResult.GetType().GetField("pFloatVal");
+
+                if (nValueNumField == null || pFloatValField == null)
+                {
+                    return null;
+                }
+
+                int count = (int)nValueNumField.GetValue(floatResult);
+                if (count <= 0)
+                {
+                    return null;
+                }
+
+                var floatArray = pFloatValField.GetValue(floatResult) as float[];
+                if (floatArray == null || floatArray.Length == 0)
+                {
+                    return null;
+                }
+
+                return floatArray[0];
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Debug($"工位{_stationId}从脚本模块获取角度失败: {ex.Message}", "VisionMaster");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 从流程ModuResult获取角度值
+        /// </summary>
+        private double? GetAngleFromProcedureModuResult()
+        {
+            try
+            {
+                if (_procedure == null)
+                {
+                    return null;
+                }
+
+                var moduResult = _procedure.ModuResult;
+                if (moduResult == null)
+                {
+                    return null;
+                }
+
+                // 尝试多种变量名
+                string[] varNames = new[] { _angleOutputName, $"%{_angleOutputName}%", "角度", "result" };
+                foreach (var varName in varNames)
+                {
+                    try
+                    {
+                        var floatResult = moduResult.GetOutputFloat(varName);
+                        if (floatResult.nValueNum > 0 && floatResult.pFloatVal != null && floatResult.pFloatVal.Length > 0)
+                        {
+                            FileLogger.Instance.Debug($"工位{_stationId}从ModuResult[{varName}]获取到值: {floatResult.pFloatVal[0]}", "VisionMaster");
+                            return floatResult.pFloatVal[0];
+                        }
+                    }
+                    catch { }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Debug($"工位{_stationId}从流程ModuResult获取角度失败: {ex.Message}", "VisionMaster");
+                return null;
             }
         }
 
