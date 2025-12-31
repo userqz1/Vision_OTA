@@ -184,7 +184,7 @@ namespace VisionOTA.Hardware.Vision
                 FileLogger.Instance.Info($"工位{_stationId}流程加载成功: {procedureName}, 输入图像源={_inputImageSourceName}, 角度输出={_angleOutputName}", "VisionMaster");
 
                 // 打印流程模块结构（调试用）
-                PrintProcedureModules(procedureName);
+                VisionMasterSolutionManager.Instance.PrintProcedureModules(procedureName);
 
                 return true;
             }
