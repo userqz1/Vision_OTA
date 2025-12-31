@@ -918,20 +918,17 @@ namespace VisionOTA.Hardware.Vision
                 try
                 {
                     var moduleList = procedure.GetAllModuleList();
-                    if (moduleList != null)
+                    FileLogger.Instance.Info($"模块总数: {moduleList.nNum}", "VisionMaster");
+                    for (int i = 0; i < moduleList.nNum; i++)
                     {
-                        FileLogger.Instance.Info($"模块总数: {moduleList.nNums}", "VisionMaster");
-                        for (int i = 0; i < moduleList.nNums; i++)
+                        try
                         {
-                            try
-                            {
-                                var moduleInfo = moduleList.astModuleInfo[i];
-                                FileLogger.Instance.Info($"  模块[{i}]: Name={moduleInfo.strModuleName}, Type={moduleInfo.strModuleType}, ID={moduleInfo.strModuleId}", "VisionMaster");
-                            }
-                            catch (Exception ex)
-                            {
-                                FileLogger.Instance.Debug($"  模块[{i}]: 读取失败 - {ex.Message}", "VisionMaster");
-                            }
+                            var moduleInfo = moduleList.astModuleInfo[i];
+                            FileLogger.Instance.Info($"  模块[{i}]: {moduleInfo.strDisplayName}, ID={moduleInfo.nModuleID}", "VisionMaster");
+                        }
+                        catch (Exception ex)
+                        {
+                            FileLogger.Instance.Debug($"  模块[{i}]: 读取失败 - {ex.Message}", "VisionMaster");
                         }
                     }
                 }
@@ -955,10 +952,8 @@ namespace VisionOTA.Hardware.Vision
                             try
                             {
                                 var floatResult = moduResult.GetOutputFloat(varName);
-                                if (floatResult != null && floatResult.nDataNum > 0)
-                                {
-                                    FileLogger.Instance.Info($"  变量[{varName}]: 数量={floatResult.nDataNum}, 值={floatResult.afData[0]}", "VisionMaster");
-                                }
+                                // FloatDataArray 结构需要你查一下属性名
+                                FileLogger.Instance.Info($"  变量[{varName}]: 类型={floatResult.GetType().Name}", "VisionMaster");
                             }
                             catch { }
                         }
