@@ -296,6 +296,20 @@ namespace VisionOTA.Hardware.Camera
                 FileLogger.Instance.Info($"流状态: {streamState}", CameraTypeName);
 
                 FileLogger.Instance.Info($"曝光时间: {_exposure}us, 增益: {_gain}", CameraTypeName);
+
+                // 读取并输出行频
+                int lineRate = 0;
+                dvpIntDescr lineRateDescr = new dvpIntDescr();
+                var lineRateStatus = DVPCamera.dvpGetIntValue(_handle, "LineRate", ref lineRate, ref lineRateDescr);
+                if (lineRateStatus == dvpStatus.DVP_STATUS_OK)
+                {
+                    FileLogger.Instance.Info($"行频: {lineRate} Hz (范围: {lineRateDescr.iMin}-{lineRateDescr.iMax})", CameraTypeName);
+                }
+                else
+                {
+                    FileLogger.Instance.Info($"行频: {_lineRate} Hz (读取失败: {lineRateStatus})", CameraTypeName);
+                }
+
                 FileLogger.Instance.Info($"========== 参数输出完成 ==========", CameraTypeName);
             }
             catch (Exception ex)
