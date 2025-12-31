@@ -952,8 +952,14 @@ namespace VisionOTA.Hardware.Vision
                             try
                             {
                                 var floatResult = moduResult.GetOutputFloat(varName);
-                                // FloatDataArray 结构需要你查一下属性名
-                                FileLogger.Instance.Info($"  变量[{varName}]: 类型={floatResult.GetType().Name}", "VisionMaster");
+                                if (floatResult.nValueNum > 0 && floatResult.pFloatVal != null)
+                                {
+                                    FileLogger.Instance.Info($"  变量[{varName}]: 数量={floatResult.nValueNum}, 值={floatResult.pFloatVal[0]}", "VisionMaster");
+                                }
+                                else
+                                {
+                                    FileLogger.Instance.Info($"  变量[{varName}]: 无数据 (nValueNum={floatResult.nValueNum})", "VisionMaster");
+                                }
                             }
                             catch { }
                         }
