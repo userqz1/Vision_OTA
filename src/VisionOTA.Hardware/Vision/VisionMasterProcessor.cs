@@ -181,7 +181,13 @@ namespace VisionOTA.Hardware.Vision
 
                 _procedureName = procedureName;
                 _isLoaded = true;
-                FileLogger.Instance.Info($"工位{_stationId}流程加载成功: {procedureName}, 输入图像源={_inputImageSourceName}, 角度输出={_angleOutputName}", "VisionMaster");
+
+                // 启用流程结果回调（关键！否则ModuResult无数据）
+                _procedure.EnableResultCallback();
+                FileLogger.Instance.Info($"工位{_stationId}流程加载成功并启用回调: {procedureName}", "VisionMaster");
+
+                // 启用关键模块的回调
+                EnableModuleCallbacks();
 
                 // 打印流程模块结构（调试用）
                 VisionMasterSolutionManager.Instance.PrintProcedureModules(procedureName);
@@ -206,6 +212,77 @@ namespace VisionOTA.Hardware.Vision
             _procedureName = null;
             _isLoaded = false;
             FileLogger.Instance.Info("VisionMaster流程已卸载", "VisionMaster");
+        }
+
+        /// <summary>
+        /// 启用关键模块的结果回调
+        /// </summary>
+        private void EnableModuleCallbacks()
+        {
+            try
+            {
+                // 启用脚本模块回调（用于获取角度结果）
+                string[] scriptModuleNames = { "脚本1", "脚本", "Script1" };
+                foreach (var name in scriptModuleNames)
+                {
+                    try
+                    {
+                        var module = VmSolution.Instance[$"{_procedureName}.{name}"];
+                        if (module != null)
+                        {
+                            var enableMethod = module.GetType().GetMethod("EnableResultCallback");
+                            if (enableMethod != null)
+                            {
+                                enableMethod.Invoke(module, null);
+                                FileLogger.Instance.Debug($"工位{_stationId}启用模块回调: {name}", "VisionMaster");
+                            }
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+
+                // 启用输出图像模块回调（用于获取结果图像）
+                string[] outputModuleNames = { "输出图像1", "输出图像", "OutputImage1" };
+                foreach (var name in outputModuleNames)
+                {
+                    try
+                    {
+                        var module = VmSolution.Instance[$"{_procedureName}.{name}"];
+                        if (module != null)
+                        {
+                            var enableMethod = module.GetType().GetMethod("EnableResultCallback");
+                            if (enableMethod != null)
+                            {
+                                enableMethod.Invoke(module, null);
+                                FileLogger.Instance.Debug($"工位{_stationId}启用模块回调: {name}", "VisionMaster");
+                            }
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+
+                // 启用图像源模块回调
+                try
+                {
+                    var imageSource = VmSolution.Instance[$"{_procedureName}.{_inputImageSourceName}"];
+                    if (imageSource != null)
+                    {
+                        var enableMethod = imageSource.GetType().GetMethod("EnableResultCallback");
+                        if (enableMethod != null)
+                        {
+                            enableMethod.Invoke(imageSource, null);
+                            FileLogger.Instance.Debug($"工位{_stationId}启用图像源回调: {_inputImageSourceName}", "VisionMaster");
+                        }
+                    }
+                }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"工位{_stationId}启用模块回调失败: {ex.Message}", "VisionMaster");
+            }
         }
 
         public VisionResult Execute(Bitmap image)
@@ -412,162 +489,28 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 从流程输出提取角度（不获取结果图，用于快速返回）
+        /// 从全局变量提取角度
         /// </summary>
         private void ExtractAngleOnly(VisionResult result)
         {
             try
             {
-                // 方法1: 从脚本模块获取result (瓶身工位使用)
-                double? angleFromScript = GetAngleFromScriptModule();
-                if (angleFromScript.HasValue && !double.IsNaN(angleFromScript.Value) && !double.IsInfinity(angleFromScript.Value))
+                double? angle = GetAngleFromGlobalVariable();
+                if (angle.HasValue && !double.IsNaN(angle.Value) && !double.IsInfinity(angle.Value))
                 {
-                    result.Angle = angleFromScript.Value;
-                    result.Found = true;
-                    FileLogger.Instance.Debug($"工位{_stationId}从脚本模块获取角度: {result.Angle:F2}", "VisionMaster");
-                    return;
-                }
-
-                // 方法2: 从流程ModuResult获取 (使用配置的输出变量名)
-                double? angleFromModuResult = GetAngleFromProcedureModuResult();
-                if (angleFromModuResult.HasValue && !double.IsNaN(angleFromModuResult.Value) && !double.IsInfinity(angleFromModuResult.Value))
-                {
-                    result.Angle = angleFromModuResult.Value;
-                    result.Found = true;
-                    FileLogger.Instance.Debug($"工位{_stationId}从流程ModuResult获取角度: {result.Angle:F2}", "VisionMaster");
-                    return;
-                }
-
-                // 方法3: 从全局变量读取角度值
-                double? angleFromGlobal = GetAngleFromGlobalVariable();
-                if (angleFromGlobal.HasValue && !double.IsNaN(angleFromGlobal.Value) && !double.IsInfinity(angleFromGlobal.Value))
-                {
-                    result.Angle = angleFromGlobal.Value;
+                    result.Angle = angle.Value;
                     result.Found = true;
                     FileLogger.Instance.Debug($"工位{_stationId}从全局变量获取角度: {result.Angle:F2}", "VisionMaster");
                     return;
                 }
 
                 result.Found = false;
-                result.ErrorMessage = $"未获取到角度值";
+                result.ErrorMessage = "未获取到角度值";
             }
             catch (Exception ex)
             {
                 result.Found = false;
                 result.ErrorMessage = $"角度提取失败: {ex.Message}";
-            }
-        }
-
-        /// <summary>
-        /// 从脚本模块获取角度值
-        /// </summary>
-        private double? GetAngleFromScriptModule()
-        {
-            try
-            {
-                // 尝试获取脚本1模块
-                var scriptModule = VmSolution.Instance[$"{_procedureName}.脚本1"];
-                if (scriptModule == null)
-                {
-                    return null;
-                }
-
-                // 获取ModuResult
-                var moduResultProp = scriptModule.GetType().GetProperty("ModuResult");
-                if (moduResultProp == null)
-                {
-                    return null;
-                }
-
-                var moduResult = moduResultProp.GetValue(scriptModule);
-                if (moduResult == null)
-                {
-                    return null;
-                }
-
-                // 调用GetOutputFloat("result")
-                var getOutputFloatMethod = moduResult.GetType().GetMethod("GetOutputFloat");
-                if (getOutputFloatMethod == null)
-                {
-                    return null;
-                }
-
-                var floatResult = getOutputFloatMethod.Invoke(moduResult, new object[] { "result" });
-                if (floatResult == null)
-                {
-                    return null;
-                }
-
-                // 读取FloatDataArray的nValueNum和pFloatVal
-                var nValueNumField = floatResult.GetType().GetField("nValueNum");
-                var pFloatValField = floatResult.GetType().GetField("pFloatVal");
-
-                if (nValueNumField == null || pFloatValField == null)
-                {
-                    return null;
-                }
-
-                int count = (int)nValueNumField.GetValue(floatResult);
-                if (count <= 0)
-                {
-                    return null;
-                }
-
-                var floatArray = pFloatValField.GetValue(floatResult) as float[];
-                if (floatArray == null || floatArray.Length == 0)
-                {
-                    return null;
-                }
-
-                return floatArray[0];
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Debug($"工位{_stationId}从脚本模块获取角度失败: {ex.Message}", "VisionMaster");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// 从流程ModuResult获取角度值
-        /// </summary>
-        private double? GetAngleFromProcedureModuResult()
-        {
-            try
-            {
-                if (_procedure == null)
-                {
-                    return null;
-                }
-
-                var moduResult = _procedure.ModuResult;
-                if (moduResult == null)
-                {
-                    return null;
-                }
-
-                // 尝试多种变量名
-                string[] varNames = new[] { _angleOutputName, $"%{_angleOutputName}%", "角度", "result" };
-                foreach (var varName in varNames)
-                {
-                    try
-                    {
-                        var floatResult = moduResult.GetOutputFloat(varName);
-                        if (floatResult.nValueNum > 0 && floatResult.pFloatVal != null && floatResult.pFloatVal.Length > 0)
-                        {
-                            FileLogger.Instance.Debug($"工位{_stationId}从ModuResult[{varName}]获取到值: {floatResult.pFloatVal[0]}", "VisionMaster");
-                            return floatResult.pFloatVal[0];
-                        }
-                    }
-                    catch { }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Debug($"工位{_stationId}从流程ModuResult获取角度失败: {ex.Message}", "VisionMaster");
-                return null;
             }
         }
 
@@ -593,36 +536,68 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 从全局变量读取角度值（只读取配置的变量名）
+        /// 从流程输出读取角度值
         /// </summary>
         private double? GetAngleFromGlobalVariable()
         {
             try
             {
-                var globalVar = VmSolution.Instance["全局变量1"] as GlobalVariableModuleTool;
-                if (globalVar == null)
+                if (_procedure == null)
                 {
+                    FileLogger.Instance.Warning($"工位{_stationId}流程未加载", "VisionMaster");
                     return null;
                 }
 
-                // 只读取配置的角度输出变量名
-                string valueStr = globalVar.GetGlobalVar(_angleOutputName);
-                if (!string.IsNullOrEmpty(valueStr) && double.TryParse(valueStr, out double angle))
+                // 尝试从流程输出读取 (格式: %变量名%)
+                string[] varFormats = new[] { $"%{_angleOutputName}%", _angleOutputName };
+
+                foreach (var varName in varFormats)
                 {
-                    FileLogger.Instance.Debug($"工位{_stationId}从全局变量'{_angleOutputName}'读取角度: {angle:F2}", "VisionMaster");
-                    return angle;
+                    try
+                    {
+                        FileLogger.Instance.Debug($"工位{_stationId}尝试读取流程输出: {varName}", "VisionMaster");
+                        var floatArray = _procedure.GetVmIOFloatValue(varName);
+                        if (floatArray != null && floatArray.Length > 0 && floatArray[0].HasValue)
+                        {
+                            double angle = floatArray[0].Value;
+                            FileLogger.Instance.Debug($"工位{_stationId}从流程输出'{varName}'读取角度: {angle:F2}", "VisionMaster");
+                            return angle;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        FileLogger.Instance.Debug($"工位{_stationId}读取'{varName}'失败: {ex.Message}", "VisionMaster");
+                    }
                 }
 
+                // 备选：从全局变量1读取
+                try
+                {
+                    var globalVar = VmSolution.Instance["全局变量1"] as GlobalVariableModuleTool;
+                    if (globalVar != null)
+                    {
+                        string valueStr = globalVar.GetGlobalVar(_angleOutputName);
+                        FileLogger.Instance.Debug($"工位{_stationId}全局变量GetGlobalVar返回: '{valueStr}'", "VisionMaster");
+                        if (!string.IsNullOrEmpty(valueStr) && double.TryParse(valueStr, out double angle))
+                        {
+                            return angle;
+                        }
+                    }
+                }
+                catch { }
+
+                FileLogger.Instance.Warning($"工位{_stationId}未能读取角度值", "VisionMaster");
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                FileLogger.Instance.Warning($"工位{_stationId}读取角度失败: {ex.Message}", "VisionMaster");
                 return null;
             }
         }
 
         /// <summary>
-        /// 获取输出图像（从流程输出变量或快速匹配模块）
+        /// 获取输出图像（从输出图像模块或流程输出变量）
         /// </summary>
         private Bitmap GetOutputImage()
         {
@@ -633,12 +608,12 @@ namespace VisionOTA.Hardware.Vision
                     return null;
                 }
 
-                // 方法1: 从快速匹配模块获取结果图
-                var imageFromMatch = GetImageFromFastMatchModule();
-                if (imageFromMatch != null)
+                // 方法1: 从输出图像模块获取 (优先级最高)
+                var imageFromOutput = GetImageFromOutputImageModule();
+                if (imageFromOutput != null)
                 {
-                    FileLogger.Instance.Debug($"工位{_stationId}从快速匹配模块获取结果图", "VisionMaster");
-                    return imageFromMatch;
+                    FileLogger.Instance.Debug($"工位{_stationId}从输出图像模块获取结果图", "VisionMaster");
+                    return imageFromOutput;
                 }
 
                 // 方法2: 从流程输出变量获取
@@ -652,14 +627,6 @@ namespace VisionOTA.Hardware.Vision
                     }
                 }
 
-                // 方法3: 从输出图像模块获取
-                var imageFromOutput = GetImageFromOutputImageModule();
-                if (imageFromOutput != null)
-                {
-                    FileLogger.Instance.Debug($"工位{_stationId}从输出图像模块获取结果图", "VisionMaster");
-                    return imageFromOutput;
-                }
-
                 FileLogger.Instance.Debug($"工位{_stationId}未获取到结果图", "VisionMaster");
                 return null;
             }
@@ -671,59 +638,26 @@ namespace VisionOTA.Hardware.Vision
         }
 
         /// <summary>
-        /// 从快速匹配模块获取结果图像
-        /// </summary>
-        private Bitmap GetImageFromFastMatchModule()
-        {
-            try
-            {
-                var matchModule = VmSolution.Instance[$"{_procedureName}.快速匹配1"];
-                if (matchModule == null)
-                {
-                    return null;
-                }
-
-                // 尝试获取模块的结果图
-                var moduResultProp = matchModule.GetType().GetProperty("ModuResult");
-                if (moduResultProp == null)
-                {
-                    return null;
-                }
-
-                var moduResult = moduResultProp.GetValue(matchModule);
-                if (moduResult == null)
-                {
-                    return null;
-                }
-
-                // 尝试调用GetOutputImageV2
-                var getOutputImageMethod = moduResult.GetType().GetMethod("GetOutputImageV2");
-                if (getOutputImageMethod != null)
-                {
-                    var imageResult = getOutputImageMethod.Invoke(moduResult, new object[] { "OutputImage" });
-                    if (imageResult != null)
-                    {
-                        return ConvertImageBaseDataToBitmap(imageResult);
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                FileLogger.Instance.Debug($"工位{_stationId}从快速匹配模块获取图像失败: {ex.Message}", "VisionMaster");
-                return null;
-            }
-        }
-
-        /// <summary>
         /// 从输出图像模块获取结果图像
         /// </summary>
         private Bitmap GetImageFromOutputImageModule()
         {
             try
             {
-                var outputModule = VmSolution.Instance[$"{_procedureName}.输出图像1"];
+                // 尝试多种输出图像模块名称
+                string[] moduleNames = { "输出图像1", "输出图像", "OutputImage1", "OutputImage" };
+                object outputModule = null;
+
+                foreach (var name in moduleNames)
+                {
+                    outputModule = VmSolution.Instance[$"{_procedureName}.{name}"];
+                    if (outputModule != null)
+                    {
+                        FileLogger.Instance.Debug($"工位{_stationId}找到输出图像模块: {name}", "VisionMaster");
+                        break;
+                    }
+                }
+
                 if (outputModule == null)
                 {
                     return null;
@@ -742,15 +676,43 @@ namespace VisionOTA.Hardware.Vision
                     return null;
                 }
 
-                // 尝试调用GetOutputImageV2
+                // 尝试调用GetOutputImageV2，使用多种可能的参数名
                 var getOutputImageMethod = moduResult.GetType().GetMethod("GetOutputImageV2");
                 if (getOutputImageMethod != null)
                 {
-                    var imageResult = getOutputImageMethod.Invoke(moduResult, new object[] { "OutputImage" });
-                    if (imageResult != null)
+                    string[] outputNames = { "OutputImage", "Image", "ResultImage", "输出图像" };
+                    foreach (var outputName in outputNames)
                     {
-                        return ConvertImageBaseDataToBitmap(imageResult);
+                        try
+                        {
+                            var imageResult = getOutputImageMethod.Invoke(moduResult, new object[] { outputName });
+                            if (imageResult != null)
+                            {
+                                var bitmap = ConvertImageBaseDataToBitmap(imageResult);
+                                if (bitmap != null)
+                                {
+                                    FileLogger.Instance.Debug($"工位{_stationId}从输出图像模块获取图像成功: 参数={outputName}", "VisionMaster");
+                                    return bitmap;
+                                }
+                            }
+                        }
+                        catch { }
                     }
+                }
+
+                // 备选：尝试GetOutputImage方法
+                var getOutputImageMethodV1 = moduResult.GetType().GetMethod("GetOutputImage");
+                if (getOutputImageMethodV1 != null)
+                {
+                    try
+                    {
+                        var imageResult = getOutputImageMethodV1.Invoke(moduResult, new object[] { "OutputImage" });
+                        if (imageResult != null)
+                        {
+                            return ConvertImageBaseDataToBitmap(imageResult);
+                        }
+                    }
+                    catch { }
                 }
 
                 return null;
@@ -1056,7 +1018,8 @@ namespace VisionOTA.Hardware.Vision
                 FileLogger.Instance.Info($"正在加载VisionMaster方案: {solutionPath}", "VisionMaster");
                 VmSolution.Load(solutionPath, password);
 
-                // 禁用所有模块回调以提高性能
+                // 先禁用所有模块回调，后续在LoadToolBlock中只启用需要的模块回调
+                // 注意：必须在LoadToolBlock中调用EnableResultCallback()才能获取结果
                 VmSolution.Instance.DisableModulesCallback();
 
                 _solutionPath = solutionPath;

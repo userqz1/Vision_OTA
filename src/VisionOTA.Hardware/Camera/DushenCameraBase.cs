@@ -357,6 +357,9 @@ namespace VisionOTA.Hardware.Camera
                 _isGrabbing = true;
                 FileLogger.Instance.Info($"{CameraTypeName}视频流启动成功, 触发源: {_currentTriggerSource}", CameraTypeName);
 
+                // 输出所有触发相关参数用于调试
+                LogTriggerParameters();
+
                 return true;
             }
             catch (Exception ex)
@@ -625,6 +628,51 @@ namespace VisionOTA.Hardware.Camera
 
         public TriggerEdge GetTriggerEdge() => _triggerEdge;
 
+        /// <summary>
+        /// 输出所有触发相关参数到日志
+        /// </summary>
+        private void LogTriggerParameters()
+        {
+            try
+            {
+                FileLogger.Instance.Info($"========== {CameraTypeName} 触发参数 ==========", CameraTypeName);
+
+                // 触发状态
+                bool triggerState = false;
+                DVPCamera.dvpGetTriggerState(_handle, ref triggerState);
+                FileLogger.Instance.Info($"触发模式启用: {triggerState}", CameraTypeName);
+
+                // 触发源
+                dvpTriggerSource triggerSource = dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE;
+                DVPCamera.dvpGetTriggerSource(_handle, ref triggerSource);
+                FileLogger.Instance.Info($"触发源: {triggerSource}", CameraTypeName);
+
+                // 触发输入类型（边沿）
+                dvpTriggerInputType inputType = dvpTriggerInputType.TRIGGER_POS_EDGE;
+                DVPCamera.dvpGetTriggerInputType(_handle, ref inputType);
+                FileLogger.Instance.Info($"触发边沿: {inputType}", CameraTypeName);
+
+                // 流状态
+                dvpStreamState streamState = dvpStreamState.STATE_STOPED;
+                DVPCamera.dvpGetStreamState(_handle, ref streamState);
+                FileLogger.Instance.Info($"流状态: {streamState}", CameraTypeName);
+
+                // 帧计数
+                dvpFrameCount frameCount = new dvpFrameCount();
+                DVPCamera.dvpGetFrameCount(_handle, ref frameCount);
+                FileLogger.Instance.Info($"帧计数: {frameCount.uFrameCount}, 帧率: {frameCount.fFrameRate:F2}fps", CameraTypeName);
+
+                // 曝光和增益使用已有的变量
+                FileLogger.Instance.Info($"曝光时间: {_exposure}us, 增益: {_gain}", CameraTypeName);
+
+                FileLogger.Instance.Info($"========== 参数输出完成 ==========", CameraTypeName);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning($"读取触发参数失败: {ex.Message}", CameraTypeName);
+            }
+        }
+
         protected bool IsHardwareTrigger(TriggerSource source)
         {
             return source == TriggerSource.Line1 || source == TriggerSource.Line2 ||
@@ -634,16 +682,29 @@ namespace VisionOTA.Hardware.Camera
         }
 
         private int _frameCount = 0;
+        private DateTime _lastFrameTime = DateTime.MinValue;
 
         protected int OnStreamCallback(uint handle, dvpStreamEvent eventType, IntPtr pContext, ref dvpFrame refFrame, IntPtr pBuffer)
         {
             try
             {
+                var now = DateTime.Now;
                 _frameCount++;
-                // 仅在首帧和每500帧时打印日志，避免影响性能
-                if (_frameCount == 1 || _frameCount % 500 == 0)
+
+                // 硬件触发模式下每帧都输出时间戳，便于排查延迟问题
+                if (IsHardwareTrigger(_currentTriggerSource))
                 {
-                    FileLogger.Instance.Debug($"{CameraTypeName}回调, 帧数: {_frameCount}, 尺寸: {refFrame.iWidth}x{refFrame.iHeight}, 格式: {refFrame.format}", CameraTypeName);
+                    double intervalMs = _lastFrameTime == DateTime.MinValue ? 0 : (now - _lastFrameTime).TotalMilliseconds;
+                    FileLogger.Instance.Info($"{CameraTypeName}触发回调 #{_frameCount} | 时间: {now:HH:mm:ss.fff} | 间隔: {intervalMs:F0}ms | 帧ID: {refFrame.uFrameID}", CameraTypeName);
+                    _lastFrameTime = now;
+                }
+                else
+                {
+                    // 连续模式仅在首帧和每500帧时打印日志
+                    if (_frameCount == 1 || _frameCount % 500 == 0)
+                    {
+                        FileLogger.Instance.Debug($"{CameraTypeName}回调, 帧数: {_frameCount}, 尺寸: {refFrame.iWidth}x{refFrame.iHeight}, 格式: {refFrame.format}", CameraTypeName);
+                    }
                 }
 
                 if (pBuffer == IntPtr.Zero || refFrame.iWidth <= 0 || refFrame.iHeight <= 0)
@@ -674,6 +735,8 @@ namespace VisionOTA.Hardware.Camera
                         bytesPerPixel = 3;
                         break;
                 }
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
 
                 var bitmap = new Bitmap(width, height, pixelFormat);
 
@@ -713,6 +776,8 @@ namespace VisionOTA.Hardware.Camera
 
                 bitmap.UnlockBits(bitmapData);
 
+                var convertTime = sw.ElapsedMilliseconds;
+
                 RaiseImageReceived(new ImageReceivedEventArgs
                 {
                     Image = bitmap,
@@ -720,6 +785,12 @@ namespace VisionOTA.Hardware.Camera
                     Height = height,
                     Timestamp = DateTime.Now
                 });
+
+                // 硬件触发时输出图像处理耗时
+                if (IsHardwareTrigger(_currentTriggerSource))
+                {
+                    FileLogger.Instance.Info($"{CameraTypeName}图像处理耗时: {convertTime}ms, 事件触发耗时: {sw.ElapsedMilliseconds}ms", CameraTypeName);
+                }
             }
             catch (Exception ex)
             {
