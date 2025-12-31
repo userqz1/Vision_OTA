@@ -182,6 +182,10 @@ namespace VisionOTA.Hardware.Vision
                 _procedureName = procedureName;
                 _isLoaded = true;
                 FileLogger.Instance.Info($"工位{_stationId}流程加载成功: {procedureName}, 输入图像源={_inputImageSourceName}, 角度输出={_angleOutputName}", "VisionMaster");
+
+                // 打印流程模块结构（调试用）
+                PrintProcedureModules(procedureName);
+
                 return true;
             }
             catch (VmException ex)
@@ -859,6 +863,110 @@ namespace VisionOTA.Hardware.Vision
                 return null;
 
             return VmSolution.Instance[procedureName] as VmProcedure;
+        }
+
+        /// <summary>
+        /// 打印指定流程的所有模块和参数
+        /// </summary>
+        public void PrintProcedureModules(string procedureName)
+        {
+            try
+            {
+                if (!_isSolutionLoaded || VmSolution.Instance == null)
+                {
+                    FileLogger.Instance.Warning("方案未加载", "VisionMaster");
+                    return;
+                }
+
+                var procedure = VmSolution.Instance[procedureName] as VmProcedure;
+                if (procedure == null)
+                {
+                    FileLogger.Instance.Warning($"未找到流程: {procedureName}", "VisionMaster");
+                    return;
+                }
+
+                FileLogger.Instance.Info($"========== 流程 [{procedureName}] 模块列表 ==========", "VisionMaster");
+
+                // 尝试获取流程的模块列表
+                try
+                {
+                    // 获取流程输出
+                    var outputs = procedure.Outputs;
+                    if (outputs != null)
+                    {
+                        FileLogger.Instance.Info($"流程输出数量: {outputs.Count}", "VisionMaster");
+                        for (int i = 0; i < outputs.Count; i++)
+                        {
+                            try
+                            {
+                                var output = outputs[i];
+                                FileLogger.Instance.Info($"  输出[{i}]: {output?.ToString() ?? "null"}", "VisionMaster");
+                            }
+                            catch (Exception ex)
+                            {
+                                FileLogger.Instance.Debug($"  输出[{i}]: 读取失败 - {ex.Message}", "VisionMaster");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Debug($"获取流程输出失败: {ex.Message}", "VisionMaster");
+                }
+
+                // 尝试常见模块名称
+                string[] moduleNames = new[]
+                {
+                    "图像源1", "图像源2", "图像源",
+                    "脚本1", "脚本2", "脚本",
+                    "Script1", "Script2",
+                    "全局变量1", "全局变量",
+                    "匹配1", "匹配2",
+                    "结果输出", "输出"
+                };
+
+                foreach (var moduleName in moduleNames)
+                {
+                    try
+                    {
+                        var module = VmSolution.Instance[$"{procedureName}.{moduleName}"];
+                        if (module != null)
+                        {
+                            FileLogger.Instance.Info($"  模块: {moduleName}, 类型: {module.GetType().Name}", "VisionMaster");
+
+                            // 尝试获取ModuResult
+                            try
+                            {
+                                var moduResult = module.GetType().GetProperty("ModuResult")?.GetValue(module);
+                                if (moduResult != null)
+                                {
+                                    FileLogger.Instance.Info($"    ModuResult: {moduResult.GetType().Name}", "VisionMaster");
+
+                                    // 尝试获取result参数
+                                    try
+                                    {
+                                        var getOutputFloat = moduResult.GetType().GetMethod("GetOutputFloat");
+                                        if (getOutputFloat != null)
+                                        {
+                                            var resultValue = getOutputFloat.Invoke(moduResult, new object[] { "result" });
+                                            FileLogger.Instance.Info($"    result参数值: {resultValue}", "VisionMaster");
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                }
+
+                FileLogger.Instance.Info($"========== 流程 [{procedureName}] 探测完成 ==========", "VisionMaster");
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"打印流程模块失败: {ex.Message}", ex, "VisionMaster");
+            }
         }
 
         /// <summary>
