@@ -279,17 +279,14 @@ namespace VisionOTA.Hardware.Camera
             {
                 FileLogger.Instance.Info($"========== {CameraTypeName} 触发参数 ==========", CameraTypeName);
 
+                // 基本触发参数
                 bool triggerState = false;
                 DVPCamera.dvpGetTriggerState(_handle, ref triggerState);
-                FileLogger.Instance.Info($"触发模式启用: {triggerState}", CameraTypeName);
+                FileLogger.Instance.Info($"帧触发模式(TriggerMode): {triggerState}", CameraTypeName);
 
                 dvpTriggerSource triggerSource = dvpTriggerSource.TRIGGER_SOURCE_SOFTWARE;
                 DVPCamera.dvpGetTriggerSource(_handle, ref triggerSource);
-                FileLogger.Instance.Info($"触发源: {triggerSource}", CameraTypeName);
-
-                dvpTriggerInputType inputType = dvpTriggerInputType.TRIGGER_POS_EDGE;
-                DVPCamera.dvpGetTriggerInputType(_handle, ref inputType);
-                FileLogger.Instance.Info($"触发边沿: {inputType}", CameraTypeName);
+                FileLogger.Instance.Info($"帧触发源: {triggerSource}", CameraTypeName);
 
                 dvpStreamState streamState = dvpStreamState.STATE_STOPED;
                 DVPCamera.dvpGetStreamState(_handle, ref streamState);
@@ -297,17 +294,61 @@ namespace VisionOTA.Hardware.Camera
 
                 FileLogger.Instance.Info($"曝光时间: {_exposure}us, 增益: {_gain}", CameraTypeName);
 
-                // 读取并输出行频
+                // ========== 线扫相机特有参数 ==========
+                FileLogger.Instance.Info($"---------- 线扫特有参数 ----------", CameraTypeName);
+
+                // 行触发使能
+                bool lineTrigEnable = false;
+                var st = DVPCamera.dvpGetBoolValue(_handle, "LineTrigEnable", ref lineTrigEnable);
+                FileLogger.Instance.Info($"行触发使能(LineTrigEnable): {lineTrigEnable} (status={st})", CameraTypeName);
+
+                // 行频
                 int lineRate = 0;
-                dvpIntDescr lineRateDescr = new dvpIntDescr();
-                var lineRateStatus = DVPCamera.dvpGetIntValue(_handle, "LineRate", ref lineRate, ref lineRateDescr);
-                if (lineRateStatus == dvpStatus.DVP_STATUS_OK)
+                dvpIntDescr intDescr = new dvpIntDescr();
+                st = DVPCamera.dvpGetIntValue(_handle, "LineRate", ref lineRate, ref intDescr);
+                FileLogger.Instance.Info($"行频(LineRate): {lineRate} Hz (范围:{intDescr.iMin}-{intDescr.iMax}, status={st})", CameraTypeName);
+
+                // 预分频
+                int preDiv = 0;
+                st = DVPCamera.dvpGetIntValue(_handle, "LineTrigFreqPreDiv", ref preDiv, ref intDescr);
+                FileLogger.Instance.Info($"预分频(LineTrigFreqPreDiv): {preDiv} (status={st})", CameraTypeName);
+
+                // 倍频
+                int mult = 0;
+                st = DVPCamera.dvpGetIntValue(_handle, "LineTrigFreqMult", ref mult, ref intDescr);
+                FileLogger.Instance.Info($"倍频(LineTrigFreqMult): {mult} (status={st})", CameraTypeName);
+
+                // 分频
+                int div = 0;
+                st = DVPCamera.dvpGetIntValue(_handle, "LineTrigFreqDiv", ref div, ref intDescr);
+                FileLogger.Instance.Info($"分频(LineTrigFreqDiv): {div} (status={st})", CameraTypeName);
+
+                // 触发过滤
+                float filter = 0;
+                dvpFloatDescr floatDescr = new dvpFloatDescr();
+                st = DVPCamera.dvpGetFloatValue(_handle, "LineTrigFilter", ref filter, ref floatDescr);
+                FileLogger.Instance.Info($"触发过滤(LineTrigFilter): {filter}us (status={st})", CameraTypeName);
+
+                // 触发延迟
+                float delay = 0;
+                st = DVPCamera.dvpGetFloatValue(_handle, "LineTrigDelay", ref delay, ref floatDescr);
+                FileLogger.Instance.Info($"触发延迟(LineTrigDelay): {delay}us (status={st})", CameraTypeName);
+
+                // 帧超时
+                int frameTimeout = 0;
+                st = DVPCamera.dvpGetIntValue(_handle, "FrameTimeout", ref frameTimeout, ref intDescr);
+                FileLogger.Instance.Info($"帧超时(FrameTimeout): {frameTimeout}ms (status={st})", CameraTypeName);
+
+                // 图像高度（帧行数）
+                int height = 0;
+                st = DVPCamera.dvpGetIntValue(_handle, "Height", ref height, ref intDescr);
+                FileLogger.Instance.Info($"图像高度(Height): {height} 行 (status={st})", CameraTypeName);
+
+                // 计算理论采集时间
+                if (lineRate > 0 && height > 0)
                 {
-                    FileLogger.Instance.Info($"行频: {lineRate} Hz (范围: {lineRateDescr.iMin}-{lineRateDescr.iMax})", CameraTypeName);
-                }
-                else
-                {
-                    FileLogger.Instance.Info($"行频: {_lineRate} Hz (读取失败: {lineRateStatus})", CameraTypeName);
+                    double theoreticalTime = (double)height / lineRate * 1000;
+                    FileLogger.Instance.Info($"理论采集时间: {theoreticalTime:F1}ms ({height}行 / {lineRate}Hz)", CameraTypeName);
                 }
 
                 FileLogger.Instance.Info($"========== 参数输出完成 ==========", CameraTypeName);
