@@ -63,6 +63,19 @@ namespace VisionOTA.Hardware.Camera
                 FileLogger.Instance.Info($"{CameraTypeName}配置触发源: {_currentTriggerSource}", CameraTypeName);
                 ConfigureTrigger(_currentTriggerSource);
 
+                // 线扫相机特有：启用行触发（使用外部编码器/触发信号控制行频）
+                if (IsHardwareTrigger(_currentTriggerSource))
+                {
+                    var st = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", true);
+                    FileLogger.Instance.Info($"{CameraTypeName}启用行触发(LineTrigEnable=true): {st}", CameraTypeName);
+                }
+                else
+                {
+                    // 连续模式或软件触发：禁用行触发，使用内部行频
+                    var st = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", false);
+                    FileLogger.Instance.Debug($"{CameraTypeName}禁用行触发(LineTrigEnable=false): {st}", CameraTypeName);
+                }
+
                 // 启动视频流
                 FileLogger.Instance.Info($"{CameraTypeName}启动视频流...", CameraTypeName);
                 var status = DVPCamera.dvpStart(_handle);
