@@ -411,6 +411,7 @@ namespace VisionOTA.Core.Services
                     if (camera is ILineCamera lineCamera && config is LineCameraConfig lineConfig)
                     {
                         lineCamera.SetLineRate(lineConfig.LineRate);
+                        lineCamera.SetLineTrigEnable(lineConfig.LineTrigEnable);
                     }
 
                     // 发布连接状态

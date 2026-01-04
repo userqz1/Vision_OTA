@@ -298,5 +298,16 @@ namespace VisionOTA.Hardware.Camera
         /// 获取行频
         /// </summary>
         int GetLineRate();
+
+        /// <summary>
+        /// 设置行触发使能
+        /// </summary>
+        /// <param name="enable">true: 使用外部信号控制行频; false: 使用内部行频</param>
+        bool SetLineTrigEnable(bool enable);
+
+        /// <summary>
+        /// 获取行触发使能状态
+        /// </summary>
+        bool GetLineTrigEnable();
     }
 }

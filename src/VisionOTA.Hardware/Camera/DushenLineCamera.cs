@@ -63,18 +63,9 @@ namespace VisionOTA.Hardware.Camera
                 FileLogger.Instance.Info($"{CameraTypeName}配置触发源: {_currentTriggerSource}", CameraTypeName);
                 ConfigureTrigger(_currentTriggerSource);
 
-                // 线扫相机特有：启用行触发（使用外部编码器/触发信号控制行频）
-                if (IsHardwareTrigger(_currentTriggerSource))
-                {
-                    var st = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", true);
-                    FileLogger.Instance.Info($"{CameraTypeName}启用行触发(LineTrigEnable=true): {st}", CameraTypeName);
-                }
-                else
-                {
-                    // 连续模式或软件触发：禁用行触发，使用内部行频
-                    var st = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", false);
-                    FileLogger.Instance.Debug($"{CameraTypeName}禁用行触发(LineTrigEnable=false): {st}", CameraTypeName);
-                }
+                // 线扫相机特有：设置行触发使能（从配置读取）
+                var lineTrigStatus = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", _lineTrigEnable);
+                FileLogger.Instance.Info($"{CameraTypeName}设置行触发使能(LineTrigEnable={_lineTrigEnable}): {lineTrigStatus}", CameraTypeName);
 
                 // 启动视频流
                 FileLogger.Instance.Info($"{CameraTypeName}启动视频流...", CameraTypeName);
@@ -414,6 +405,52 @@ namespace VisionOTA.Hardware.Camera
                 }
             }
             return _lineRate;
+        }
+
+        private bool _lineTrigEnable = false;
+
+        /// <summary>
+        /// 设置行触发使能
+        /// </summary>
+        public bool SetLineTrigEnable(bool enable)
+        {
+            try
+            {
+                _lineTrigEnable = enable;
+                if (_isConnected && _handle != 0)
+                {
+                    var status = DVPCamera.dvpSetBoolValue(_handle, "LineTrigEnable", enable);
+                    if (status != dvpStatus.DVP_STATUS_OK)
+                    {
+                        FileLogger.Instance.Warning($"{CameraTypeName}设置行触发使能失败: {status}", CameraTypeName);
+                        return false;
+                    }
+                    FileLogger.Instance.Info($"{CameraTypeName}行触发使能设置为: {enable}", CameraTypeName);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error($"设置行触发使能失败: {ex.Message}", ex, CameraTypeName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取行触发使能状态
+        /// </summary>
+        public bool GetLineTrigEnable()
+        {
+            if (_isConnected && _handle != 0)
+            {
+                bool enable = false;
+                var status = DVPCamera.dvpGetBoolValue(_handle, "LineTrigEnable", ref enable);
+                if (status == dvpStatus.DVP_STATUS_OK)
+                {
+                    _lineTrigEnable = enable;
+                }
+            }
+            return _lineTrigEnable;
         }
     }
 }

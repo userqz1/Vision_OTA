@@ -93,5 +93,12 @@ namespace VisionOTA.Infrastructure.Config
         /// 行频
         /// </summary>
         public int LineRate { get; set; }
+
+        /// <summary>
+        /// 行触发使能（使用外部编码器/触发信号控制行频）
+        /// true: 跟随外部信号采集
+        /// false: 使用内部行频采集
+        /// </summary>
+        public bool LineTrigEnable { get; set; } = false;
     }
 }
